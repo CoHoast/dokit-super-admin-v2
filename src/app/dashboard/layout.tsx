@@ -126,11 +126,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div>
       {/* Mobile Header */}
       <div className="mobile-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#0f172a', fontWeight: 'bold', fontSize: '16px' }}>D</span>
-          </div>
-          <span style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>DOKit</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <img src="/dokit-logo.png" alt="DOKit" style={{ height: '32px' }} />
         </div>
         <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
           <svg width="24" height="24" fill="none" stroke="#0f172a" strokeWidth="2" viewBox="0 0 24 24">
@@ -146,12 +143,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '40px', height: '40px', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: '#0f172a', fontWeight: 'bold', fontSize: '20px' }}>D</span>
-              </div>
-              <span style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a' }}>DOKit</span>
-            </div>
+            <img src="/dokit-logo.png" alt="DOKit" style={{ height: '36px' }} />
             <button 
               onClick={closeSidebar}
               style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}
