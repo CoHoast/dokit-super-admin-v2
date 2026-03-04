@@ -490,7 +490,64 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main Content */}
       <main className="main-content">
-        {children}
+        {/* Frosted Glass Header */}
+        <header className="frosted-header" style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          height: '64px',
+          borderBottom: '1px solid #e2e8f0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 24px',
+          marginBottom: '0',
+          marginLeft: '-32px',
+          marginRight: '-32px',
+          marginTop: '-32px',
+          paddingTop: '0',
+        }}>
+          <div>
+            <h1 style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b', margin: 0 }}>
+              {selectedClient ? selectedClient.name : 'Admin Dashboard'}
+            </h1>
+            <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>
+              {selectedClient ? 'Client Workflows' : 'Platform Overview'}
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Search Bar */}
+            <div className="search-bar" style={{ display: 'none' }}>
+              <svg width="16" height="16" fill="none" stroke="#94a3b8" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input type="text" placeholder="Search..." />
+              <kbd>⌘K</kbd>
+            </div>
+            
+            {/* Notifications */}
+            <button className="notification-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+              <svg width="20" height="20" fill="none" stroke="#475569" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              <span className="notification-dot"></span>
+            </button>
+          </div>
+        </header>
+        
+        {/* Content with Gradient Orb */}
+        <div style={{ position: 'relative', paddingTop: '24px' }}>
+          {/* Gradient Orb Background */}
+          <div style={{ position: 'absolute', top: 0, right: 0, width: '500px', height: '500px', pointerEvents: 'none', zIndex: 0 }}>
+            <div className="dashboard-orb" style={{ width: '100%', height: '100%', borderRadius: '50%' }}></div>
+          </div>
+          
+          {/* Page Content */}
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            {children}
+          </div>
+        </div>
       </main>
 
       <style jsx global>{`
