@@ -178,7 +178,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-slate-800 truncate">{client.name}</div>
-                      <div className="text-xs text-slate-500">{client.stats?.documentsThisMonth || 0} docs this month</div>
+                      <div className="text-xs text-slate-500">{client.documentsThisMonth || 0} docs this month</div>
                     </div>
                     {selectedClient?.id === client.id && <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
                   </button>
