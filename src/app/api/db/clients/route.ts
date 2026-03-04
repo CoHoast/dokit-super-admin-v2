@@ -11,10 +11,6 @@ export async function GET() {
         c.slug,
         c.status,
         c.contact_email,
-        c.webhook_url,
-        c.s3_input_prefix,
-        c.s3_output_prefix,
-        c.notes,
         c.created_at,
         c.updated_at
       FROM clients c
@@ -27,10 +23,6 @@ export async function GET() {
       slug: row.slug,
       status: row.status || 'active',
       contactEmail: row.contact_email,
-      webhookUrl: row.webhook_url,
-      s3InputPrefix: row.s3_input_prefix,
-      s3OutputPrefix: row.s3_output_prefix,
-      notes: row.notes,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       stats: {
@@ -40,7 +32,7 @@ export async function GET() {
         documentsThisMonth: 0,
         totalApplications: 0,
         totalClaims: 0,
-        activeWorkflows: 5 // Default to showing all 5 workflows
+        activeWorkflows: 5
       }
     }));
 
