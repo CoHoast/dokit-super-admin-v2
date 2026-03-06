@@ -81,8 +81,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const closeSidebar = () => setSidebarOpen(false);
 
+  // Map workflow types to their navigation hrefs
+  const workflowHrefMap: Record<string, string> = {
+    'document-intake': '/dashboard/workflows/document-intake',
+    'member-intake': '/dashboard/workflows/member-intake',
+    'claims-adjudication': '/dashboard/workflows/claims-adjudication',
+    'provider-bills': '/dashboard/workflows/provider-bills',
+    'workers-comp': '/dashboard/workflows/workers-comp',
+  };
+
   // Choose navigation based on whether a client is selected
-  const navigationGroups = selectedClient ? clientNavigation : platformNavigation;
+  let navigationGroups = selectedClient ? clientNavigation : platformNavigation;
+
+  // Filter workflows based on enabled workflows for selected client
+  if (selectedClient && selectedClient.enabledWorkflows && selectedClient.enabledWorkflows.length > 0) {
+    const enabledWorkflowTypes = selectedClient.enabledWorkflows
+      .filter(w => w.enabled)
+      .map(w => w.type);
+    
+    navigationGroups = navigationGroups.map(group => {
+      if (group.name === 'Workflows') {
+        return {
+          ...group,
+          items: group.items.filter(item => {
+            // Find which workflow type this nav item corresponds to
+            const workflowType = Object.entries(workflowHrefMap).find(
+              ([_, href]) => href === item.href
+            )?.[0];
+            return workflowType ? enabledWorkflowTypes.includes(workflowType) : true;
+          })
+        };
+      }
+      return group;
+    }).filter(group => group.items.length > 0); // Remove empty groups
+  }
 
   // Filter navigation based on user role
   const filteredNavigation = user 

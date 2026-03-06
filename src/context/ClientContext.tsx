@@ -35,6 +35,12 @@ export interface AdjudicationRule {
   active: boolean;
 }
 
+export interface EnabledWorkflow {
+  type: string;
+  enabled: boolean;
+  config?: any;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -42,6 +48,7 @@ export interface Client {
   status: 'active' | 'onboarding' | 'paused' | 'inactive';
   documentsThisMonth: number;
   workflows: Workflow[];
+  enabledWorkflows: EnabledWorkflow[];
   documentTypes?: DocumentType[];
   adjudicationRules?: AdjudicationRule[];
 }
@@ -131,6 +138,7 @@ export function ClientProvider({ children }: { children: ReactNode }) {
             ...w,
             id: `${c.slug}-${w.id}`,
           })),
+          enabledWorkflows: [], // Will be fetched when client is selected
         }));
         
         setClients(transformedClients);
@@ -174,11 +182,25 @@ export function ClientProvider({ children }: { children: ReactNode }) {
     await fetchClients();
   };
 
-  const selectClient = (client: Client | null) => {
-    setSelectedClient(client);
+  const selectClient = async (client: Client | null) => {
     if (client) {
-      localStorage.setItem('mco-selected-client', client.id);
+      // Fetch enabled workflows for this client
+      try {
+        const res = await fetch(`/api/db/clients/${client.id}/workflows`);
+        const data = await res.json();
+        const clientWithWorkflows = {
+          ...client,
+          enabledWorkflows: data.workflows || [],
+        };
+        setSelectedClient(clientWithWorkflows);
+        localStorage.setItem('mco-selected-client', client.id);
+      } catch (err) {
+        console.error('Failed to fetch client workflows:', err);
+        setSelectedClient(client);
+        localStorage.setItem('mco-selected-client', client.id);
+      }
     } else {
+      setSelectedClient(null);
       localStorage.removeItem('mco-selected-client');
     }
   };

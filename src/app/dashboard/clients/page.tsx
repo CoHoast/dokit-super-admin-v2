@@ -261,21 +261,22 @@ export default function ClientsPage() {
                     <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 500, color: '#0a0f1a' }}>{client.stats.documentsThisMonth}</td>
                     <td style={{ padding: '16px 20px', textAlign: 'right', fontWeight: 500, color: '#0a0f1a' }}>{client.stats.totalDocuments.toLocaleString()}</td>
                     <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                      <button 
-                        onClick={() => setShowViewModal(client)}
+                      <a 
+                        href={`/dashboard/clients/${client.id}`}
                         style={{
                           padding: '6px 12px',
-                          background: 'rgba(0, 212, 255, 0.1)',
+                          background: 'rgba(99, 102, 241, 0.1)',
                           border: 'none',
                           borderRadius: '6px',
                           fontSize: '13px',
                           fontWeight: 500,
-                          color: '#00b8e6',
+                          color: '#6366f1',
                           cursor: 'pointer',
+                          textDecoration: 'none',
                         }}
                       >
-                        View Details
-                      </button>
+                        Manage
+                      </a>
                     </td>
                   </tr>
                 );
