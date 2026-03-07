@@ -1,4 +1,4 @@
-// Quick fix to add missing columns to negotiations table
+// Quick fix to add missing columns to various tables
 
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
@@ -17,20 +17,32 @@ export async function POST() {
       ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'pending'
     `);
     
+    // Add settings column to clients if it doesn't exist
+    await pool.query(`
+      ALTER TABLE clients 
+      ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'
+    `);
+    
     // Verify columns exist
-    const result = await pool.query(`
+    const negResult = await pool.query(`
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'negotiations'
       ORDER BY ordinal_position
     `);
     
-    const columns = result.rows.map(r => r.column_name);
+    const clientResult = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'clients'
+      ORDER BY ordinal_position
+    `);
     
     return NextResponse.json({
       success: true,
-      message: 'Negotiations table fixed',
-      columns
+      message: 'Tables fixed',
+      negotiations_columns: negResult.rows.map(r => r.column_name),
+      clients_columns: clientResult.rows.map(r => r.column_name)
     });
     
   } catch (error: any) {
