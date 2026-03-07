@@ -216,7 +216,7 @@ export default function BillsListPage() {
           </div>
         ) : bills.length === 0 ? (
           <div style={{ padding: '64px', textAlign: 'center' }}>
-            <p style={{ fontSize: '48px', marginBottom: '16px' }}>📋</p>
+            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><svg width="32" height="32" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
             <p style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>No bills found</p>
             <p style={{ color: '#64748b', marginBottom: '24px' }}>
               {statusFilter !== 'all' ? 'Try a different filter or ' : ''}Get started by adding your first bill.

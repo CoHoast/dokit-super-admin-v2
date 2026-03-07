@@ -129,7 +129,7 @@ export default function BillNegotiatorSettingsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#0f172a', marginBottom: '4px' }}>
-              📋 Custom Rules
+              Custom Rules
             </h3>
             <p style={{ fontSize: '14px', color: '#64748b' }}>
               Create advanced automation rules with custom conditions and actions.

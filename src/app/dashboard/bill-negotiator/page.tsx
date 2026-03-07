@@ -149,7 +149,7 @@ export default function BillNegotiatorPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
         <div>
           <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#0f172a', marginBottom: '8px' }}>
-            💰 Bill Negotiator
+            Bill Negotiator
           </h1>
           <p style={{ color: '#64748b', fontSize: '15px' }}>
             AI-powered medical bill negotiation {selectedClient ? (
@@ -203,7 +203,10 @@ export default function BillNegotiatorPage() {
               transition: 'all 0.2s ease'
             }}
           >
-            📊 Reports
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            Reports
           </Link>
           <Link
             href="/dashboard/bill-negotiator/bills"
@@ -458,7 +461,11 @@ export default function BillNegotiatorPage() {
           
           {recentBills.length === 0 ? (
             <div style={{ padding: '48px', textAlign: 'center' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>📄</div>
+              <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <svg width="32" height="32" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+              </div>
               <p style={{ color: '#64748b', marginBottom: '16px' }}>No bills yet</p>
               <Link
                 href="/dashboard/bill-negotiator/bills/new"
@@ -524,8 +531,11 @@ export default function BillNegotiatorPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Status Breakdown */}
           <div style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', padding: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#0f172a', marginBottom: '20px' }}>
-              📊 Status Breakdown
+            <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#0f172a', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="18" height="18" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24">
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+              Status Breakdown
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {analytics?.statusBreakdown?.slice(0, 5).map((item) => {
@@ -556,8 +566,11 @@ export default function BillNegotiatorPage() {
 
           {/* Top Providers */}
           <div style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', padding: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#0f172a', marginBottom: '20px' }}>
-              🏥 Top Providers
+            <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#0f172a', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="18" height="18" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/><path d="M1 21h22"/><path d="M9 7h1"/><path d="M9 11h1"/><path d="M9 15h1"/><path d="M14 7h1"/><path d="M14 11h1"/><path d="M14 15h1"/>
+              </svg>
+              Top Providers
             </h3>
             {analytics?.topProviders?.length === 0 ? (
               <p style={{ color: '#64748b', fontSize: '14px', textAlign: 'center', padding: '20px 0' }}>

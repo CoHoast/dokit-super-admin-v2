@@ -226,7 +226,7 @@ export default function ReportsPage() {
           <span style={{ color: '#cbd5e1' }}>/</span>
           <span style={{ color: '#6366f1', fontWeight: '500', fontSize: '14px' }}>Reports</span>
         </div>
-        <h1 style={styles.title}>📊 Savings Report</h1>
+        <h1 style={styles.title}>Savings Report</h1>
         <p style={styles.subtitle}>Track your negotiation performance and savings.</p>
       </div>
 
@@ -305,7 +305,7 @@ export default function ReportsPage() {
             {/* Top Providers */}
             <div style={styles.card}>
               <div style={styles.cardHeader}>
-                <h3 style={styles.cardTitle}>🏥 Top Providers</h3>
+                <h3 style={styles.cardTitle}>Top Providers</h3>
               </div>
               <table style={styles.table}>
                 <thead>
@@ -376,7 +376,7 @@ export default function ReportsPage() {
           {/* Status Breakdown */}
           <div style={styles.card}>
             <div style={styles.cardHeader}>
-              <h3 style={styles.cardTitle}>📋 Status Breakdown</h3>
+              <h3 style={styles.cardTitle}>Status Breakdown</h3>
             </div>
             <div style={{ padding: '20px 24px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
               {report.by_status.map((s, i) => (
