@@ -101,6 +101,19 @@ export function SendOfferModal({ bill, negotiationId, onClose, onSent }: SendOff
       
       const data = await response.json();
       if (data.success) {
+        // Save the recipient to the bill for future offers
+        const contactUpdate: Record<string, string> = {};
+        if (method === 'email') {
+          contactUpdate.providerEmail = recipient;
+        } else {
+          contactUpdate.providerFax = recipient;
+        }
+        await fetch(`/api/db/bill-negotiator/bills/${bill.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(contactUpdate)
+        });
+        
         onSent(data);
       } else {
         setError(data.error || 'Failed to send offer');

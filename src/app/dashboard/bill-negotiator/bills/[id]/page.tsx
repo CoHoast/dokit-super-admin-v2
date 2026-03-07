@@ -330,6 +330,20 @@ export default function BillDetailPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ offer_sent_via: sendMethod })
           });
+          
+          // Save the recipient to the bill for future offers
+          const contactUpdate: Record<string, string> = {};
+          if (sendMethod === 'email') {
+            contactUpdate.providerEmail = recipient;
+          } else {
+            contactUpdate.providerFax = recipient;
+          }
+          await fetch(`/api/db/bill-negotiator/bills/${billId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(contactUpdate)
+          });
+          
           alert(`✅ Offer sent successfully via ${sendMethod} to ${recipient}`);
         } else {
           console.warn('Offer created but email failed:', sendData.error);
