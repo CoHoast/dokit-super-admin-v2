@@ -9,7 +9,7 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const billResult = await pool.query(`
+    const result = await pool.query(`
       SELECT 
         b.*,
         c.name as client_name,
@@ -19,11 +19,11 @@ export async function GET(
       WHERE b.id = $1
     `, [id]);
 
-    if (billResult.rows.length === 0) {
+    if (result.rows.length === 0) {
       return NextResponse.json({ error: 'Bill not found' }, { status: 404 });
     }
 
-    const bill = billResult.rows[0];
+    const bill = result.rows[0];
 
     // Get negotiations for this bill
     const negotiationsResult = await pool.query(`
@@ -32,28 +32,31 @@ export async function GET(
       ORDER BY created_at DESC
     `, [id]);
 
-    // Get communications
+    // Get communications for this bill
     const commsResult = await pool.query(`
       SELECT * FROM negotiation_communications 
       WHERE bill_id = $1 
       ORDER BY created_at DESC
     `, [id]);
 
-    // Get provider intelligence if we have NPI
-    let providerIntelligence = null;
+    // Get provider intelligence if exists
+    let providerIntel = null;
     if (bill.provider_npi) {
       const providerResult = await pool.query(`
         SELECT * FROM bill_providers 
         WHERE client_id = $1 AND npi = $2
       `, [bill.client_id, bill.provider_npi]);
-      providerIntelligence = providerResult.rows[0] || null;
+      
+      if (providerResult.rows.length > 0) {
+        providerIntel = providerResult.rows[0];
+      }
     }
 
     return NextResponse.json({
       bill,
       negotiations: negotiationsResult.rows,
       communications: commsResult.rows,
-      providerIntelligence
+      providerIntel
     });
 
   } catch (error: any) {
@@ -62,49 +65,144 @@ export async function GET(
   }
 }
 
-// PATCH /api/db/bill-negotiator/bills/[id] - Update bill
-export async function PATCH(
+// PUT /api/db/bill-negotiator/bills/[id] - Update bill
+export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const updates = await request.json();
+    const data = await request.json();
+
+    const {
+      status,
+      lineItems,
+      diagnosisCodes,
+      extractedData,
+      extractionConfidence,
+      totalBilled,
+      totalMedicareRate,
+      fairPrice,
+      providerName,
+      providerNpi,
+      providerFax,
+      providerEmail,
+      memberName,
+      accountNumber,
+      dateOfService
+    } = data;
 
     // Build dynamic update query
-    const allowedFields = [
-      'member_id', 'member_name', 'member_dob',
-      'provider_name', 'provider_npi', 'provider_tin', 'provider_address',
-      'provider_phone', 'provider_fax', 'provider_email',
-      'account_number', 'date_of_service', 'place_of_service', 'facility_type',
-      'document_url', 'document_type', 'line_items', 'diagnosis_codes', 'extracted_data',
-      'extraction_confidence', 'total_billed', 'total_medicare_rate', 'fair_price',
-      'status', 'analyzed_at'
-    ];
-
-    const setClauses: string[] = [];
+    const updates: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
-    for (const [key, value] of Object.entries(updates)) {
-      const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-      if (allowedFields.includes(snakeKey)) {
-        setClauses.push(`${snakeKey} = $${paramIndex}`);
-        values.push(typeof value === 'object' ? JSON.stringify(value) : value);
-        paramIndex++;
+    if (status !== undefined) {
+      updates.push(`status = $${paramIndex}`);
+      values.push(status);
+      paramIndex++;
+      
+      // Set analyzed_at if moving to ready_to_negotiate
+      if (status === 'ready_to_negotiate' || status === 'analyzing') {
+        updates.push(`analyzed_at = NOW()`);
       }
     }
 
-    if (setClauses.length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+    if (lineItems !== undefined) {
+      updates.push(`line_items = $${paramIndex}`);
+      values.push(JSON.stringify(lineItems));
+      paramIndex++;
     }
 
-    setClauses.push(`updated_at = NOW()`);
+    if (diagnosisCodes !== undefined) {
+      updates.push(`diagnosis_codes = $${paramIndex}`);
+      values.push(JSON.stringify(diagnosisCodes));
+      paramIndex++;
+    }
+
+    if (extractedData !== undefined) {
+      updates.push(`extracted_data = $${paramIndex}`);
+      values.push(JSON.stringify(extractedData));
+      paramIndex++;
+    }
+
+    if (extractionConfidence !== undefined) {
+      updates.push(`extraction_confidence = $${paramIndex}`);
+      values.push(extractionConfidence);
+      paramIndex++;
+    }
+
+    if (totalBilled !== undefined) {
+      updates.push(`total_billed = $${paramIndex}`);
+      values.push(totalBilled);
+      paramIndex++;
+    }
+
+    if (totalMedicareRate !== undefined) {
+      updates.push(`total_medicare_rate = $${paramIndex}`);
+      values.push(totalMedicareRate);
+      paramIndex++;
+    }
+
+    if (fairPrice !== undefined) {
+      updates.push(`fair_price = $${paramIndex}`);
+      values.push(fairPrice);
+      paramIndex++;
+    }
+
+    if (providerName !== undefined) {
+      updates.push(`provider_name = $${paramIndex}`);
+      values.push(providerName);
+      paramIndex++;
+    }
+
+    if (providerNpi !== undefined) {
+      updates.push(`provider_npi = $${paramIndex}`);
+      values.push(providerNpi);
+      paramIndex++;
+    }
+
+    if (providerFax !== undefined) {
+      updates.push(`provider_fax = $${paramIndex}`);
+      values.push(providerFax);
+      paramIndex++;
+    }
+
+    if (providerEmail !== undefined) {
+      updates.push(`provider_email = $${paramIndex}`);
+      values.push(providerEmail);
+      paramIndex++;
+    }
+
+    if (memberName !== undefined) {
+      updates.push(`member_name = $${paramIndex}`);
+      values.push(memberName);
+      paramIndex++;
+    }
+
+    if (accountNumber !== undefined) {
+      updates.push(`account_number = $${paramIndex}`);
+      values.push(accountNumber);
+      paramIndex++;
+    }
+
+    if (dateOfService !== undefined) {
+      updates.push(`date_of_service = $${paramIndex}`);
+      values.push(dateOfService);
+      paramIndex++;
+    }
+
+    updates.push('updated_at = NOW()');
+
+    if (updates.length === 1) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
     values.push(id);
 
     const result = await pool.query(`
       UPDATE bills 
-      SET ${setClauses.join(', ')}
+      SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING *
     `, values);

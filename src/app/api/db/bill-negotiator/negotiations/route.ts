@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         b.member_name,
         b.provider_name,
         b.total_billed,
+        b.account_number,
         b.date_of_service,
         c.name as client_name
       FROM negotiations n
@@ -49,13 +50,20 @@ export async function GET(request: NextRequest) {
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `, [...params, limit, offset]);
 
-    const countResult = await pool.query(`
-      SELECT COUNT(*) FROM negotiations n ${whereClause}
+    // Get counts by status
+    const statsResult = await pool.query(`
+      SELECT 
+        response_type,
+        COUNT(*) as count,
+        SUM(savings_amount) as total_savings
+      FROM negotiations n
+      ${whereClause}
+      GROUP BY response_type
     `, params);
 
     return NextResponse.json({
       negotiations: result.rows,
-      total: parseInt(countResult.rows[0].count),
+      stats: statsResult.rows,
       limit,
       offset
     });
@@ -66,7 +74,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/db/bill-negotiator/negotiations - Create negotiation / send offer
+// POST /api/db/bill-negotiator/negotiations - Create negotiation (send offer)
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
@@ -78,32 +86,40 @@ export async function POST(request: NextRequest) {
       initialOffer,
       maxAcceptable,
       walkAwayMax,
-      sendVia = 'fax'
+      offerLetterUrl,
+      offerSentVia,
+      autoNegotiated
     } = data;
 
-    if (!billId || !clientId || !initialOffer) {
-      return NextResponse.json({ 
-        error: 'billId, clientId, and initialOffer are required' 
-      }, { status: 400 });
+    if (!billId || !clientId) {
+      return NextResponse.json({ error: 'billId and clientId are required' }, { status: 400 });
     }
 
-    // Create negotiation record
+    // Create the negotiation
     const result = await pool.query(`
       INSERT INTO negotiations (
-        bill_id, client_id, strategy, initial_offer, max_acceptable, walk_away_max,
-        offer_sent_via, response_type
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+        bill_id, client_id, strategy,
+        initial_offer, max_acceptable, walk_away_max,
+        offer_letter_url, offer_sent_via, offer_sent_at,
+        response_type, auto_negotiated
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, NOW(), 'pending', $9
+      )
       RETURNING *
-    `, [billId, clientId, strategy, initialOffer, maxAcceptable, walkAwayMax, sendVia]);
+    `, [
+      billId, clientId, strategy || 'cash_pay',
+      initialOffer, maxAcceptable, walkAwayMax,
+      offerLetterUrl, offerSentVia || 'fax',
+      autoNegotiated || false
+    ]);
 
-    const negotiation = result.rows[0];
-
-    // Update bill status to 'offer_sent'
+    // Update bill status
     await pool.query(`
-      UPDATE bills SET status = 'offer_sent', updated_at = NOW() WHERE id = $1
+      UPDATE bills SET status = 'offer_sent', updated_at = NOW()
+      WHERE id = $1
     `, [billId]);
 
-    return NextResponse.json({ negotiation });
+    return NextResponse.json({ negotiation: result.rows[0] });
 
   } catch (error: any) {
     console.error('Error creating negotiation:', error);
