@@ -5,6 +5,18 @@ import { pool } from '@/lib/db';
 
 export async function POST() {
   try {
+    // Add missing column to negotiations table if it doesn't exist
+    await pool.query(`
+      ALTER TABLE negotiations 
+      ADD COLUMN IF NOT EXISTS current_offer DECIMAL(12,2)
+    `);
+    
+    // Also add status column if missing
+    await pool.query(`
+      ALTER TABLE negotiations 
+      ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'pending'
+    `);
+    
     // Create bill_communications table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS bill_communications (
