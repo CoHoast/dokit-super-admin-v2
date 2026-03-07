@@ -604,7 +604,16 @@ h1, h2, h3, h4 {
   }
 }
 
-/* Remove gradient orb - keep it clean */
+/* Gradient orb background - subtle version */
 .dashboard-orb {
-  display: none;
+  background: radial-gradient(circle at 30% 40%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
+              radial-gradient(circle at 70% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+              radial-gradient(circle at 50% 60%, rgba(236, 72, 153, 0.06) 0%, transparent 50%);
+  filter: blur(40px);
+  animation: floatOrb 20s ease-in-out infinite;
+}
+
+@keyframes floatOrb {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.01); }
 }
