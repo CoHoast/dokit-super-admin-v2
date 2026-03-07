@@ -51,6 +51,13 @@ export interface Client {
   enabledWorkflows: EnabledWorkflow[];
   documentTypes?: DocumentType[];
   adjudicationRules?: AdjudicationRule[];
+  // Custom dashboard fields
+  dashboardType?: 'standard' | 'custom';
+  customDashboardUrl?: string;
+  statsApiEndpoint?: string;
+  connectionStatus?: 'connected' | 'pending' | 'error' | 'disconnected';
+  lastStatsSync?: string;
+  stats?: any;
 }
 
 // Default workflows template for clients
@@ -139,6 +146,13 @@ export function ClientProvider({ children }: { children: ReactNode }) {
             id: `${c.slug}-${w.id}`,
           })),
           enabledWorkflows: [], // Will be fetched when client is selected
+          // Custom dashboard fields
+          dashboardType: c.dashboardType || 'standard',
+          customDashboardUrl: c.customDashboardUrl,
+          statsApiEndpoint: c.statsApiEndpoint,
+          connectionStatus: c.connectionStatus || 'disconnected',
+          lastStatsSync: c.lastStatsSync,
+          stats: c.stats,
         }));
         
         setClients(transformedClients);
