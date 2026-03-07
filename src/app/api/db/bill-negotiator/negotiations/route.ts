@@ -79,38 +79,47 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const {
-      billId,
-      clientId,
-      strategy,
-      initialOffer,
-      maxAcceptable,
-      walkAwayMax,
-      offerLetterUrl,
-      offerSentVia,
-      autoNegotiated
-    } = data;
+    // Support both naming conventions
+    const billId = data.billId || data.bill_id;
+    const initialOffer = data.initialOffer || data.offer_amount || data.initial_offer;
+    let clientId = data.clientId || data.client_id;
+    const strategy = data.strategy;
+    const maxAcceptable = data.maxAcceptable || data.max_acceptable;
+    const walkAwayMax = data.walkAwayMax || data.walk_away_max;
+    const offerLetterUrl = data.offerLetterUrl || data.offer_letter_url;
+    const offerSentVia = data.offerSentVia || data.offer_sent_via;
+    const autoNegotiated = data.autoNegotiated || data.auto_negotiated;
+    const round = data.round || 1;
 
-    if (!billId || !clientId) {
-      return NextResponse.json({ error: 'billId and clientId are required' }, { status: 400 });
+    if (!billId) {
+      return NextResponse.json({ error: 'billId is required' }, { status: 400 });
+    }
+
+    // If clientId not provided, fetch it from the bill
+    if (!clientId) {
+      const billResult = await pool.query('SELECT client_id FROM bills WHERE id = $1', [billId]);
+      if (billResult.rows.length === 0) {
+        return NextResponse.json({ error: 'Bill not found' }, { status: 404 });
+      }
+      clientId = billResult.rows[0].client_id;
     }
 
     // Create the negotiation
     const result = await pool.query(`
       INSERT INTO negotiations (
         bill_id, client_id, strategy,
-        initial_offer, max_acceptable, walk_away_max,
+        initial_offer, current_offer, max_acceptable, walk_away_max,
         offer_letter_url, offer_sent_via, offer_sent_at,
-        response_type, auto_negotiated
+        response_type, auto_negotiated, round
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, NOW(), 'pending', $9
+        $1, $2, $3, $4, $4, $5, $6, $7, $8, NOW(), 'pending', $9, $10
       )
       RETURNING *
     `, [
       billId, clientId, strategy || 'cash_pay',
       initialOffer, maxAcceptable, walkAwayMax,
       offerLetterUrl, offerSentVia || 'fax',
-      autoNegotiated || false
+      autoNegotiated || false, round
     ]);
 
     // Update bill status
