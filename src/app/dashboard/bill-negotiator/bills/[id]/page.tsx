@@ -55,6 +55,7 @@ interface Negotiation {
   savings_amount?: number;
   savings_percent?: number;
   offer_sent_at?: string;
+  offer_sent_via?: 'fax' | 'email';
   response_received_at?: string;
   settled_at?: string;
   auto_negotiated: boolean;
