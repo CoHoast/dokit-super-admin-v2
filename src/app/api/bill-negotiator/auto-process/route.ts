@@ -438,11 +438,20 @@ export async function GET(request: NextRequest) {
   const action = searchParams.get('action') || 'process_all';
   const clientId = searchParams.get('clientId');
   
-  // Health check (no secret)
+  // Health check (no secret) - also show cron status
   if (!secret) {
+    let cronStatus = 'unknown';
+    try {
+      const { isCronRunning } = await import('@/lib/cron-scheduler');
+      cronStatus = isCronRunning() ? 'running' : 'stopped';
+    } catch {
+      cronStatus = 'not-initialized';
+    }
+    
     return NextResponse.json({
       status: 'ok',
       service: 'bill-negotiator-auto-processor',
+      cron: cronStatus,
       timestamp: new Date().toISOString()
     });
   }
