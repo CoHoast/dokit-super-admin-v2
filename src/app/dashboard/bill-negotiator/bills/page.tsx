@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useClient } from '@/context/ClientContext';
+import BulkUploadModal from '@/components/BulkUploadModal';
 
 interface Bill {
   id: number;
@@ -32,6 +33,7 @@ export default function BillsListPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const limit = 20;
 
   useEffect(() => {
@@ -135,27 +137,52 @@ export default function BillsListPage() {
             {total} total bills {selectedClient ? `for ${selectedClient.name}` : ''}
           </p>
         </div>
-        <Link
-          href="/dashboard/bill-negotiator/bills/new"
-          style={{
-            padding: '12px 24px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-            color: 'white',
-            borderRadius: '10px',
-            textDecoration: 'none',
-            fontWeight: 600,
-            fontSize: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
-          }}
-        >
-          <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M12 4v16m8-8H4"/>
-          </svg>
-          Add Bill
-        </Link>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          {selectedClient && (
+            <button
+              onClick={() => setShowBulkUpload(true)}
+              style={{
+                padding: '12px 24px',
+                background: 'white',
+                color: '#6366f1',
+                borderRadius: '10px',
+                border: '2px solid #6366f1',
+                fontWeight: 600,
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+              </svg>
+              Bulk Upload
+            </button>
+          )}
+          <Link
+            href="/dashboard/bill-negotiator/bills/new"
+            style={{
+              padding: '12px 24px',
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              color: 'white',
+              borderRadius: '10px',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
+            }}
+          >
+            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M12 4v16m8-8H4"/>
+            </svg>
+            Add Bill
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -330,6 +357,20 @@ export default function BillsListPage() {
           </>
         )}
       </div>
+
+      {/* Bulk Upload Modal */}
+      {showBulkUpload && selectedClient && (
+        <BulkUploadModal
+          clientId={selectedClient.id}
+          workflowKey="bill-negotiator"
+          workflowName="Bill Negotiator"
+          onClose={() => setShowBulkUpload(false)}
+          onSuccess={() => {
+            setShowBulkUpload(false);
+            fetchBills();
+          }}
+        />
+      )}
     </div>
   );
 }

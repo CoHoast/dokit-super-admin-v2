@@ -215,12 +215,21 @@ export async function POST() {
       )
     `);
 
+    // Add intake tracking columns if they don't exist
+    await pool.query(`
+      ALTER TABLE bills 
+      ADD COLUMN IF NOT EXISTS source_file_id INTEGER,
+      ADD COLUMN IF NOT EXISTS source_filename VARCHAR(500),
+      ADD COLUMN IF NOT EXISTS notes TEXT
+    `);
+
     // Create indexes for performance
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_bills_client_id ON bills(client_id);
       CREATE INDEX IF NOT EXISTS idx_bills_status ON bills(status);
       CREATE INDEX IF NOT EXISTS idx_bills_received_at ON bills(received_at);
       CREATE INDEX IF NOT EXISTS idx_bills_member_id ON bills(member_id);
+      CREATE INDEX IF NOT EXISTS idx_bills_source_file ON bills(source_file_id);
       
       CREATE INDEX IF NOT EXISTS idx_negotiations_bill_id ON negotiations(bill_id);
       CREATE INDEX IF NOT EXISTS idx_negotiations_client_id ON negotiations(client_id);

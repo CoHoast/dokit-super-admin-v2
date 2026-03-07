@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useClient } from '@/context/ClientContext';
+import IntakeSourcesManager from '@/components/IntakeSourcesManager';
 
 interface Analytics {
   overview: {
@@ -400,6 +401,17 @@ export default function BillNegotiatorPage() {
           </div>
         </div>
       </div>
+
+      {/* Intake Sources Configuration */}
+      {selectedClient && (
+        <div style={{ marginTop: '32px' }}>
+          <IntakeSourcesManager 
+            clientId={selectedClient.id}
+            workflowKey="bill-negotiator"
+            workflowName="Bill Negotiator"
+          />
+        </div>
+      )}
     </div>
   );
 }
