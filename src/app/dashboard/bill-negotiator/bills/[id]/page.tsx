@@ -23,6 +23,9 @@ interface Bill {
   provider_name: string;
   provider_npi: string;
   provider_tax_id?: string;
+  provider_email?: string;
+  provider_fax?: string;
+  provider_address?: string;
   account_number: string;
   date_of_service: string;
   total_billed: number;
@@ -265,19 +268,42 @@ export default function BillDetailPage() {
         body: JSON.stringify({
           bill_id: parseInt(billId),
           strategy: offerStrategy,
-          offer_amount: parseFloat(offerAmount),
-          round: negotiations.length + 1
+          offer_amount: parseFloat(offerAmount)
         })
       });
       
       if (!res.ok) throw new Error('Failed to create offer');
       
-      // Update bill status
-      await fetch(`/api/db/bill-negotiator/bills/${billId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'offer_sent' })
-      });
+      const negData = await res.json();
+      const negotiationId = negData.negotiation?.id;
+      
+      // Determine send method and recipient
+      const sendMethod = bill?.provider_fax ? 'fax' : 'email';
+      const recipient = bill?.provider_fax || bill?.provider_email;
+      
+      if (recipient && negotiationId) {
+        // Send the offer via email/fax
+        const sendRes = await fetch('/api/communication/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            billId: parseInt(billId),
+            negotiationId,
+            method: sendMethod,
+            recipient,
+            offerAmount: parseFloat(offerAmount),
+            letterType: negotiations.length === 0 ? 'initial_offer' : 'counter_offer'
+          })
+        });
+        
+        const sendData = await sendRes.json();
+        if (!sendData.success) {
+          console.warn('Offer created but email failed:', sendData.error);
+          alert(`Offer created but sending failed: ${sendData.error || 'Unknown error'}. You can resend from the negotiation history.`);
+        }
+      } else {
+        alert('Offer created but no provider email/fax on file. Please add contact info and send manually.');
+      }
       
       setShowOfferModal(false);
       setOfferAmount('');
