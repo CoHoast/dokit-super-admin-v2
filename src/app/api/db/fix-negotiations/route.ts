@@ -23,6 +23,30 @@ export async function POST() {
       ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'
     `);
     
+    // Add response_token column to negotiations for provider response portal
+    await pool.query(`
+      ALTER TABLE negotiations 
+      ADD COLUMN IF NOT EXISTS response_token VARCHAR(64) UNIQUE
+    `);
+    
+    // Add response_token_expires column
+    await pool.query(`
+      ALTER TABLE negotiations 
+      ADD COLUMN IF NOT EXISTS response_token_expires TIMESTAMPTZ
+    `);
+    
+    // Add provider_response_at column
+    await pool.query(`
+      ALTER TABLE negotiations 
+      ADD COLUMN IF NOT EXISTS provider_response_at TIMESTAMPTZ
+    `);
+    
+    // Add provider_response_method column (portal, email, phone, fax)
+    await pool.query(`
+      ALTER TABLE negotiations 
+      ADD COLUMN IF NOT EXISTS provider_response_method VARCHAR(20)
+    `);
+    
     // Verify columns exist
     const negResult = await pool.query(`
       SELECT column_name 

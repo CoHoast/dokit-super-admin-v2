@@ -319,6 +319,15 @@ export function generateOfferLetterHTML(
     </div>
   </div>
   
+  ${(data as any).responseUrl ? `
+  <div style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border: 2px solid #16a34a; border-radius: 12px; padding: 24px; margin: 30px 0; text-align: center;">
+    <h3 style="color: #15803d; margin: 0 0 12px; font-size: 14pt;">Respond Online</h3>
+    <p style="color: #166534; margin: 0 0 16px; font-size: 11pt;">Accept this offer, submit a counter, or decline — all online.</p>
+    <a href="${(data as any).responseUrl}" style="display: inline-block; background: #16a34a; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 12pt;">Click Here to Respond</a>
+    <p style="color: #6b7280; margin: 16px 0 0; font-size: 9pt;">Or visit: ${(data as any).responseUrl}</p>
+  </div>
+  ` : ''}
+  
   <div class="signature-block">
     <p>Sincerely,</p>
     <div class="signature-line">
