@@ -202,6 +202,35 @@ export async function POST(
         UPDATE bills SET status = 'counter_received', updated_at = NOW() WHERE id = $1
       `, [neg.bill_id]);
       
+      // Check if client is in autonomous mode and schedule auto-response
+      const settingsResult = await pool.query(`
+        SELECT * FROM negotiation_settings WHERE client_id = $1
+      `, [neg.client_id]);
+      
+      if (settingsResult.rows.length > 0) {
+        const settings = settingsResult.rows[0];
+        if (settings.autonomy_level === 'fully_autonomous') {
+          // Calculate delay based on settings
+          const mode = settings.response_delay_mode || 'natural';
+          let minMs = (settings.response_delay_min_minutes || 60) * 60 * 1000;
+          let maxMs = (settings.response_delay_max_minutes || 240) * 60 * 1000;
+          
+          if (mode === 'instant') { minMs = 0; maxMs = 60000; }
+          else if (mode === 'quick') { minMs = 15 * 60 * 1000; maxMs = 30 * 60 * 1000; }
+          else if (mode === 'natural') { minMs = 60 * 60 * 1000; maxMs = 4 * 60 * 60 * 1000; }
+          else if (mode === 'deliberate') { minMs = 4 * 60 * 60 * 1000; maxMs = 24 * 60 * 60 * 1000; }
+          
+          const delayMs = minMs + Math.random() * (maxMs - minMs);
+          const scheduledAt = new Date(Date.now() + delayMs);
+          
+          await pool.query(`
+            UPDATE negotiations SET scheduled_response_at = $1, updated_at = NOW() WHERE id = $2
+          `, [scheduledAt, neg.id]);
+          
+          console.log(`[AUTO] Scheduled response for negotiation ${neg.id} at ${scheduledAt.toISOString()}`);
+        }
+      }
+      
     } else { // reject
       await pool.query(`
         UPDATE negotiations SET

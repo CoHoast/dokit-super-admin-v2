@@ -47,6 +47,12 @@ export async function POST() {
       ADD COLUMN IF NOT EXISTS provider_response_method VARCHAR(20)
     `);
     
+    // Add scheduled_response_at for autonomous delayed responses
+    await pool.query(`
+      ALTER TABLE negotiations 
+      ADD COLUMN IF NOT EXISTS scheduled_response_at TIMESTAMPTZ
+    `);
+    
     // Verify columns exist
     const negResult = await pool.query(`
       SELECT column_name 
