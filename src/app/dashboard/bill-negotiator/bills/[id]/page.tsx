@@ -164,13 +164,14 @@ export default function BillDetailPage() {
     }
   }, [bill?.provider_npi, fetchProviderIntel]);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | string | null | undefined) => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : (amount || 0);
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
-    }).format(amount);
+    }).format(num);
   };
 
   const formatDate = (dateString: string | undefined) => {
@@ -898,7 +899,7 @@ export default function BillDetailPage() {
                     )}
                     
                     <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '12px' }}>
-                      Strategy: {neg.strategy.replace('_', ' ')} • {formatDate(neg.created_at)}
+                      Strategy: {(neg.strategy || 'cash_pay').replace('_', ' ')} • {formatDate(neg.created_at)}
                     </p>
                   </div>
                 ))}
@@ -936,7 +937,7 @@ export default function BillDetailPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontSize: '13px', color: '#64748b' }}>Best Strategy</span>
                     <span style={{ fontWeight: 500, color: '#6366f1', textTransform: 'capitalize' }}>
-                      {providerIntel.preferred_strategy.replace('_', ' ')}
+                      {(providerIntel.preferred_strategy || 'unknown').replace('_', ' ')}
                     </span>
                   </div>
                 )}
