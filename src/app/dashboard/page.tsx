@@ -328,10 +328,9 @@ export default function DashboardPage() {
               background: colors.cardBg,
               borderRadius: '16px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
               transition: 'transform 0.2s, box-shadow 0.2s',
               transform: hoveredCard === 'today' ? 'translateY(-4px)' : 'none',
-              boxShadow: hoveredCard === 'today' ? '0 8px 25px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+              boxShadow: hoveredCard === 'today' ? '0 8px 25px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
               cursor: 'pointer'
             }}
             onMouseEnter={() => setHoveredCard('today')}
@@ -370,10 +369,9 @@ export default function DashboardPage() {
               background: colors.cardBg,
               borderRadius: '16px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
               transition: 'transform 0.2s, box-shadow 0.2s',
               transform: hoveredCard === 'pending' ? 'translateY(-4px)' : 'none',
-              boxShadow: hoveredCard === 'pending' ? '0 8px 25px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+              boxShadow: hoveredCard === 'pending' ? '0 8px 25px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
               cursor: 'pointer'
             }}
             onMouseEnter={() => setHoveredCard('pending')}
@@ -419,10 +417,9 @@ export default function DashboardPage() {
               background: colors.cardBg,
               borderRadius: '16px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
               transition: 'transform 0.2s, box-shadow 0.2s',
               transform: hoveredCard === 'time' ? 'translateY(-4px)' : 'none',
-              boxShadow: hoveredCard === 'time' ? '0 8px 25px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+              boxShadow: hoveredCard === 'time' ? '0 8px 25px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
               cursor: 'pointer'
             }}
             onMouseEnter={() => setHoveredCard('time')}
@@ -467,10 +464,9 @@ export default function DashboardPage() {
               background: colors.cardBg,
               borderRadius: '16px',
               padding: '24px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
               transition: 'transform 0.2s, box-shadow 0.2s',
               transform: hoveredCard === 'success' ? 'translateY(-4px)' : 'none',
-              boxShadow: hoveredCard === 'success' ? '0 8px 25px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04)',
+              boxShadow: hoveredCard === 'success' ? '0 8px 25px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
               cursor: 'pointer'
             }}
             onMouseEnter={() => setHoveredCard('success')}
