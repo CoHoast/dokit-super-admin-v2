@@ -1,273 +1,511 @@
 'use client';
 
-import { useState } from 'react';
-import { useClient, Workflow } from '@/context/ClientContext';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { useClient } from '@/context/ClientContext';
+import { WORKFLOWS, WORKFLOW_CATEGORIES, WorkflowDefinition } from '@/config/workflows';
+
+interface WorkflowWithStatus extends WorkflowDefinition {
+  enabled: boolean;
+  enabledAt?: string;
+  enabledBy?: string;
+  config: Record<string, any>;
+  hasCustomConfig: boolean;
+}
+
+interface ClientWorkflowData {
+  client: { id: number; name: string; tier: string };
+  workflows: WorkflowWithStatus[];
+  summary: { total: number; enabled: number; disabled: number };
+}
 
 export default function WorkflowsPage() {
-  const { selectedClient, updateWorkflow } = useClient();
-  const [editingWorkflow, setEditingWorkflow] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Partial<Workflow>>({});
+  const { selectedClient } = useClient();
+  const [data, setData] = useState<ClientWorkflowData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [expandedWorkflow, setExpandedWorkflow] = useState<string | null>(null);
+  const [configEdits, setConfigEdits] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (selectedClient) {
+      fetchWorkflows();
+    } else {
+      setLoading(false);
+    }
+  }, [selectedClient]);
+
+  const fetchWorkflows = async () => {
+    if (!selectedClient) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/db/workflows/client/${selectedClient.id}`);
+      const result = await res.json();
+      setData(result);
+    } catch (error) {
+      console.error('Error fetching workflows:', error);
+    }
+    setLoading(false);
+  };
+
+  const toggleWorkflow = async (workflowKey: string, enabled: boolean) => {
+    if (!selectedClient) return;
+    
+    setSaving(workflowKey);
+    try {
+      const res = await fetch(`/api/db/workflows/client/${selectedClient.id}/${workflowKey}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled, actor: 'super_admin' })
+      });
+      
+      if (res.ok) {
+        await fetchWorkflows();
+      }
+    } catch (error) {
+      console.error('Error toggling workflow:', error);
+    }
+    setSaving(null);
+  };
+
+  const saveConfig = async (workflowKey: string) => {
+    if (!selectedClient || !configEdits[workflowKey]) return;
+    
+    setSaving(workflowKey);
+    try {
+      const res = await fetch(`/api/db/workflows/client/${selectedClient.id}/${workflowKey}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: configEdits[workflowKey], actor: 'super_admin' })
+      });
+      
+      if (res.ok) {
+        setConfigEdits(prev => {
+          const next = { ...prev };
+          delete next[workflowKey];
+          return next;
+        });
+        await fetchWorkflows();
+      }
+    } catch (error) {
+      console.error('Error saving config:', error);
+    }
+    setSaving(null);
+  };
+
+  const updateConfigField = (workflowKey: string, field: string, value: any) => {
+    setConfigEdits(prev => ({
+      ...prev,
+      [workflowKey]: {
+        ...(prev[workflowKey] || data?.workflows.find(w => w.key === workflowKey)?.config || {}),
+        [field]: value
+      }
+    }));
+  };
+
+  const getWorkflowIcon = (iconName: string) => {
+    const icons: Record<string, JSX.Element> = {
+      DocumentTextIcon: (
+        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      ),
+      UserPlusIcon: (
+        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+        </svg>
+      ),
+      ClipboardDocumentCheckIcon: (
+        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+        </svg>
+      ),
+      CurrencyDollarIcon: (
+        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      ),
+      BuildingOffice2Icon: (
+        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+      ),
+      ShieldCheckIcon: (
+        <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      )
+    };
+    return icons[iconName] || icons.DocumentTextIcon;
+  };
+
+  const getTierBadge = (tier: string) => {
+    const styles: Record<string, { bg: string; color: string }> = {
+      starter: { bg: '#f1f5f9', color: '#64748b' },
+      professional: { bg: '#dbeafe', color: '#2563eb' },
+      enterprise: { bg: '#f5f3ff', color: '#7c3aed' }
+    };
+    const style = styles[tier] || styles.starter;
+    return (
+      <span style={{
+        padding: '2px 8px',
+        borderRadius: '4px',
+        fontSize: '11px',
+        fontWeight: 600,
+        textTransform: 'uppercase',
+        background: style.bg,
+        color: style.color
+      }}>
+        {tier}
+      </span>
+    );
+  };
 
   if (!selectedClient) {
     return (
       <div style={{ padding: '32px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '24px', color: '#0a0f1a', marginBottom: '16px' }}>No Client Selected</h1>
-        <p style={{ color: '#6b7280', marginBottom: '24px' }}>Please select a client to configure workflows.</p>
-        <Link href="/dashboard" style={{ color: '#00d4ff' }}>← Back to Dashboard</Link>
+        <p style={{ fontSize: '48px', marginBottom: '16px' }}>🔧</p>
+        <h2 style={{ fontSize: '20px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+          Select a Client
+        </h2>
+        <p style={{ color: '#64748b' }}>
+          Choose a client from the dropdown to manage their workflows.
+        </p>
       </div>
     );
   }
 
-  const handleEdit = (workflow: Workflow) => {
-    setEditingWorkflow(workflow.id);
-    setFormData({
-      ftpHost: workflow.ftpHost || '',
-      ftpPath: workflow.ftpPath || '',
-      ftpUsername: workflow.ftpUsername || '',
-      outputApiEndpoint: workflow.outputApiEndpoint || '',
-      outputApiKey: workflow.outputApiKey || '',
-    });
-  };
+  if (loading) {
+    return (
+      <div style={{ padding: '32px', display: 'flex', justifyContent: 'center' }}>
+        <p style={{ color: '#64748b' }}>Loading workflows...</p>
+      </div>
+    );
+  }
 
-  const handleSave = (workflowId: string) => {
-    updateWorkflow(selectedClient.id, workflowId, formData);
-    setEditingWorkflow(null);
-    setFormData({});
-  };
-
-  const handleCancel = () => {
-    setEditingWorkflow(null);
-    setFormData({});
-  };
+  const workflowsByCategory = Object.entries(WORKFLOW_CATEGORIES).map(([key, cat]) => ({
+    ...cat,
+    key,
+    workflows: data?.workflows.filter(w => w.category === key) || []
+  }));
 
   return (
     <div style={{ padding: '32px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <Link href="/dashboard" style={{ color: '#6b7280', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '14px' }}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M15 19l-7-7 7-7"/>
-            </svg>
-            {selectedClient.name}
-          </Link>
-          <span style={{ color: '#d1d5db' }}>/</span>
-          <span style={{ color: '#00d4ff', fontWeight: 500 }}>Workflows</span>
-        </div>
-        <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#0a0f1a', marginBottom: '8px' }}>Workflows</h1>
-        <p style={{ color: '#6b7280', fontSize: '15px' }}>Configure document processing and claims adjudication workflows</p>
+        <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
+          Workflow Management
+        </h1>
+        <p style={{ color: '#64748b', fontSize: '15px' }}>
+          Enable and configure workflows for {selectedClient.name}
+        </p>
       </div>
 
-      {/* Workflows */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {selectedClient.workflows.map(workflow => (
-          <div key={workflow.id} style={{ 
-            background: 'white', 
-            borderRadius: '16px', 
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            overflow: 'hidden',
-          }}>
-            {/* Workflow Header */}
-            <div style={{ padding: '24px', borderBottom: '1px solid #f0f0f0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                  <div style={{
-                    width: 48, height: 48, borderRadius: '12px',
-                    background: workflow.type === 'document-intake' ? 'rgba(0, 212, 255, 0.1)' : 'rgba(139, 92, 246, 0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {workflow.type === 'document-intake' ? (
-                      <svg width="24" height="24" fill="none" stroke="#00d4ff" strokeWidth="2" viewBox="0 0 24 24">
-                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                      </svg>
-                    ) : (
-                      <svg width="24" height="24" fill="none" stroke="#8b5cf6" strokeWidth="2" viewBox="0 0 24 24">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                      </svg>
-                    )}
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0a0f1a', marginBottom: '4px' }}>{workflow.name}</h2>
-                    <p style={{ fontSize: '14px', color: '#6b7280', maxWidth: '600px' }}>{workflow.description}</p>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    background: workflow.status === 'active' ? '#dcfce7' : workflow.status === 'paused' ? '#fee2e2' : '#fef3c7',
-                    color: workflow.status === 'active' ? '#166534' : workflow.status === 'paused' ? '#991b1b' : '#92400e',
-                    textTransform: 'capitalize',
-                  }}>
-                    {workflow.status}
-                  </span>
-                </div>
-              </div>
-            </div>
+      {/* Summary Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '32px' }}>
+        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0' }}>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Total Workflows</p>
+          <p style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{data?.summary.total || 0}</p>
+        </div>
+        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0' }}>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Enabled</p>
+          <p style={{ fontSize: '28px', fontWeight: 700, color: '#16a34a' }}>{data?.summary.enabled || 0}</p>
+        </div>
+        <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0' }}>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Disabled</p>
+          <p style={{ fontSize: '28px', fontWeight: 700, color: '#64748b' }}>{data?.summary.disabled || 0}</p>
+        </div>
+      </div>
 
-            {/* Workflow Configuration */}
-            <div style={{ padding: '24px' }}>
-              {editingWorkflow === workflow.id ? (
-                // Edit Mode
-                <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0a0f1a', marginBottom: '16px' }}>Configuration</h3>
-                  
-                  {workflow.type === 'document-intake' && (
-                    <div style={{ marginBottom: '24px' }}>
-                      <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', marginBottom: '12px', textTransform: 'uppercase' }}>FTP Input</h4>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px' }}>FTP Host</label>
-                          <input
-                            type="text"
-                            value={formData.ftpHost || ''}
-                            onChange={e => setFormData({ ...formData, ftpHost: e.target.value })}
-                            placeholder="ftp.example.com"
-                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '14px' }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px' }}>FTP Path</label>
-                          <input
-                            type="text"
-                            value={formData.ftpPath || ''}
-                            onChange={e => setFormData({ ...formData, ftpPath: e.target.value })}
-                            placeholder="/incoming"
-                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '14px' }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px' }}>FTP Username</label>
-                          <input
-                            type="text"
-                            value={formData.ftpUsername || ''}
-                            onChange={e => setFormData({ ...formData, ftpUsername: e.target.value })}
-                            placeholder="username"
-                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '14px' }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{ marginBottom: '24px' }}>
-                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280', marginBottom: '12px', textTransform: 'uppercase' }}>MCO Output API</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px' }}>API Endpoint</label>
-                        <input
-                          type="text"
-                          value={formData.outputApiEndpoint || ''}
-                          onChange={e => setFormData({ ...formData, outputApiEndpoint: e.target.value })}
-                          placeholder="https://api.mco-advantage.com/v1/documents"
-                          style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '14px' }}
-                        />
+      {/* Workflows by Category */}
+      {workflowsByCategory.map(category => (
+        <div key={category.key} style={{ marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
+            {category.name}
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {category.workflows.map(workflow => {
+              const isExpanded = expandedWorkflow === workflow.key;
+              const currentConfig = configEdits[workflow.key] || workflow.config;
+              const hasEdits = !!configEdits[workflow.key];
+              
+              return (
+                <div
+                  key={workflow.key}
+                  style={{
+                    background: 'white',
+                    borderRadius: '12px',
+                    border: workflow.enabled ? `2px solid ${workflow.color}40` : '1px solid #e2e8f0',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {/* Workflow Header */}
+                  <div style={{ 
+                    padding: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: '12px',
+                        background: `${workflow.color}15`,
+                        color: workflow.color,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        {getWorkflowIcon(workflow.icon)}
                       </div>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: '#374151', marginBottom: '6px' }}>API Key</label>
-                        <input
-                          type="password"
-                          value={formData.outputApiKey || ''}
-                          onChange={e => setFormData({ ...formData, outputApiKey: e.target.value })}
-                          placeholder="••••••••••••••••"
-                          style={{ width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '14px' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <button
-                      onClick={() => handleSave(workflow.id)}
-                      style={{ padding: '10px 20px', background: '#00d4ff', color: '#0a0f1a', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
-                    >
-                      Save Configuration
-                    </button>
-                    <button
-                      onClick={handleCancel}
-                      style={{ padding: '10px 20px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontWeight: 500, cursor: 'pointer' }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                // View Mode
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', gap: '48px' }}>
-                      {workflow.type === 'document-intake' && (
-                        <div>
-                          <h4 style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase' }}>FTP Input</h4>
-                          {workflow.ftpHost ? (
-                            <div style={{ fontSize: '14px', color: '#374151' }}>
-                              <p><span style={{ color: '#6b7280' }}>Host:</span> {workflow.ftpHost}</p>
-                              <p><span style={{ color: '#6b7280' }}>Path:</span> {workflow.ftpPath}</p>
-                              <p><span style={{ color: '#6b7280' }}>User:</span> {workflow.ftpUsername}</p>
-                            </div>
-                          ) : (
-                            <p style={{ fontSize: '14px', color: '#f59e0b' }}>Not configured</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a' }}>
+                            {workflow.name}
+                          </h3>
+                          {getTierBadge(workflow.requiredTier)}
+                          {workflow.enabled && (
+                            <span style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              background: '#dcfce7',
+                              color: '#16a34a'
+                            }}>
+                              ACTIVE
+                            </span>
                           )}
                         </div>
-                      )}
-                      <div>
-                        <h4 style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase' }}>MCO Output API</h4>
-                        {workflow.outputApiEndpoint ? (
-                          <div style={{ fontSize: '14px', color: '#374151' }}>
-                            <p><span style={{ color: '#6b7280' }}>Endpoint:</span> {workflow.outputApiEndpoint}</p>
-                            <p><span style={{ color: '#6b7280' }}>API Key:</span> ••••••••</p>
-                          </div>
-                        ) : (
-                          <p style={{ fontSize: '14px', color: '#f59e0b' }}>Not configured</p>
-                        )}
-                      </div>
-                      <div>
-                        <h4 style={{ fontSize: '12px', fontWeight: 600, color: '#9ca3af', marginBottom: '8px', textTransform: 'uppercase' }}>Stats</h4>
-                        <div style={{ fontSize: '14px', color: '#374151' }}>
-                          <p><span style={{ color: '#6b7280' }}>Processed:</span> {workflow.documentsProcessed}</p>
-                          <p><span style={{ color: '#6b7280' }}>Last Run:</span> {workflow.lastRun}</p>
-                        </div>
+                        <p style={{ fontSize: '14px', color: '#64748b' }}>
+                          {workflow.shortDescription}
+                        </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleEdit(workflow)}
-                      style={{ padding: '8px 16px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                      </svg>
-                      Configure
-                    </button>
-                  </div>
-
-                  {/* Related Links */}
-                  <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #f0f0f0' }}>
-                    {workflow.type === 'document-intake' ? (
-                      <Link href="/dashboard/documents" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#00d4ff', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
-                        Manage Document Types →
-                      </Link>
-                    ) : (
-                      <Link href="/dashboard/rules" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#8b5cf6', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      {/* Configure Button */}
+                      <button
+                        onClick={() => setExpandedWorkflow(isExpanded ? null : workflow.key)}
+                        style={{
+                          padding: '8px 16px',
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          fontSize: '14px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
                         <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                           <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                           <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                         </svg>
-                        Manage Adjudication Rules →
-                      </Link>
-                    )}
+                        Configure
+                      </button>
+                      
+                      {/* Toggle Switch */}
+                      <button
+                        onClick={() => toggleWorkflow(workflow.key, !workflow.enabled)}
+                        disabled={saving === workflow.key}
+                        style={{
+                          width: 56,
+                          height: 30,
+                          borderRadius: 15,
+                          border: 'none',
+                          background: workflow.enabled ? workflow.color : '#e2e8f0',
+                          cursor: saving === workflow.key ? 'not-allowed' : 'pointer',
+                          position: 'relative',
+                          transition: 'background 0.2s',
+                          opacity: saving === workflow.key ? 0.7 : 1
+                        }}
+                      >
+                        <div style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          background: 'white',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                          position: 'absolute',
+                          top: 3,
+                          left: workflow.enabled ? 29 : 3,
+                          transition: 'left 0.2s'
+                        }} />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Expanded Config Panel */}
+                  {isExpanded && (
+                    <div style={{
+                      padding: '20px',
+                      borderTop: '1px solid #e2e8f0',
+                      background: '#f8fafc'
+                    }}>
+                      <div style={{ marginBottom: '20px' }}>
+                        <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '4px' }}>
+                          Description
+                        </h4>
+                        <p style={{ fontSize: '14px', color: '#64748b' }}>{workflow.description}</p>
+                      </div>
+                      
+                      <div style={{ marginBottom: '20px' }}>
+                        <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '12px' }}>
+                          Features
+                        </h4>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {workflow.features.map(feature => (
+                            <span
+                              key={feature}
+                              style={{
+                                padding: '4px 12px',
+                                background: 'white',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '6px',
+                                fontSize: '13px',
+                                color: '#64748b'
+                              }}
+                            >
+                              {feature}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>
+                          Configuration
+                        </h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                          {Object.entries(workflow.configSchema).map(([fieldKey, field]) => (
+                            <div key={fieldKey}>
+                              <label style={{
+                                display: 'block',
+                                fontSize: '13px',
+                                fontWeight: 500,
+                                color: '#374151',
+                                marginBottom: '6px'
+                              }}>
+                                {field.label}
+                              </label>
+                              
+                              {field.type === 'boolean' ? (
+                                <button
+                                  onClick={() => updateConfigField(workflow.key, fieldKey, !currentConfig[fieldKey])}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '8px 12px',
+                                    background: currentConfig[fieldKey] ? '#dcfce7' : '#f1f5f9',
+                                    border: '1px solid',
+                                    borderColor: currentConfig[fieldKey] ? '#86efac' : '#e2e8f0',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  {currentConfig[fieldKey] ? '✓ Enabled' : '○ Disabled'}
+                                </button>
+                              ) : field.type === 'enum' ? (
+                                <select
+                                  value={currentConfig[fieldKey] || field.default}
+                                  onChange={(e) => updateConfigField(workflow.key, fieldKey, e.target.value)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    background: 'white'
+                                  }}
+                                >
+                                  {field.options?.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type={field.type === 'number' ? 'number' : field.type === 'email' ? 'email' : 'text'}
+                                  value={currentConfig[fieldKey] ?? field.default}
+                                  onChange={(e) => updateConfigField(
+                                    workflow.key,
+                                    fieldKey,
+                                    field.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value
+                                  )}
+                                  min={field.min}
+                                  max={field.max}
+                                  style={{
+                                    width: '100%',
+                                    padding: '10px 12px',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    fontSize: '14px'
+                                  }}
+                                />
+                              )}
+                              
+                              {field.description && (
+                                <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                                  {field.description}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {hasEdits && (
+                          <div style={{ marginTop: '20px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => {
+                                setConfigEdits(prev => {
+                                  const next = { ...prev };
+                                  delete next[workflow.key];
+                                  return next;
+                                });
+                              }}
+                              style={{
+                                padding: '10px 20px',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px',
+                                background: 'white',
+                                fontWeight: 500,
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => saveConfig(workflow.key)}
+                              disabled={saving === workflow.key}
+                              style={{
+                                padding: '10px 20px',
+                                background: workflow.color,
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontWeight: 600,
+                                cursor: saving === workflow.key ? 'not-allowed' : 'pointer',
+                                opacity: saving === workflow.key ? 0.7 : 1
+                              }}
+                            >
+                              {saving === workflow.key ? 'Saving...' : 'Save Configuration'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }

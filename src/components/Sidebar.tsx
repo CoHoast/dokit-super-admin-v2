@@ -15,7 +15,9 @@ import {
   ShieldCheckIcon,
   CalendarDaysIcon,
   BuildingOfficeIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  CubeIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import { useState, useEffect } from 'react';
 
@@ -30,7 +32,14 @@ const navigationGroups = [
     name: 'Clients',
     items: [
       { name: 'All Clients', href: '/dashboard/clients', icon: BuildingOfficeIcon },
+      { name: 'Workflows', href: '/dashboard/workflows', icon: CubeIcon },
       { name: 'Billing', href: '/dashboard/billing', icon: CreditCardIcon },
+    ]
+  },
+  {
+    name: 'Products',
+    items: [
+      { name: 'Bill Negotiator', href: '/dashboard/bill-negotiator', icon: CurrencyDollarIcon },
     ]
   },
   {
