@@ -101,11 +101,19 @@ export default function BillDetailPage() {
       const res = await fetch(`/api/db/bill-negotiator/bills/${billId}`);
       if (!res.ok) throw new Error('Bill not found');
       const data = await res.json();
-      setBill(data);
+      
+      // API returns { bill, negotiations, communications, providerIntel }
+      const billData = data.bill || data;
+      setBill(billData);
+      
+      // Also set negotiations if returned
+      if (data.negotiations) {
+        setNegotiations(data.negotiations);
+      }
       
       // Calculate suggested offer if fair_price exists
-      if (data.fair_price && !offerAmount) {
-        setOfferAmount(Math.round(data.fair_price * 0.6).toString()); // Start at 60% of fair price
+      if (billData.fair_price && !offerAmount) {
+        setOfferAmount(Math.round(billData.fair_price * 0.6).toString()); // Start at 60% of fair price
       }
     } catch (error) {
       console.error('Error fetching bill:', error);
