@@ -136,7 +136,7 @@ export default function ProviderResponsePage() {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <div style={styles.iconCircle('#fef3c7')}>
+          <div style={getIconCircleStyle('#fef3c7')}>
             <span style={{ fontSize: 32 }}>⏰</span>
           </div>
           <h1 style={styles.title}>Offer Expired</h1>
@@ -153,7 +153,7 @@ export default function ProviderResponsePage() {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <div style={styles.iconCircle('#dbeafe')}>
+          <div style={getIconCircleStyle('#dbeafe')}>
             <span style={{ fontSize: 32 }}>✓</span>
           </div>
           <h1 style={styles.title}>Already Responded</h1>
@@ -170,7 +170,7 @@ export default function ProviderResponsePage() {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <div style={styles.iconCircle('#fee2e2')}>
+          <div style={getIconCircleStyle('#fee2e2')}>
             <span style={{ fontSize: 32 }}>❌</span>
           </div>
           <h1 style={styles.title}>Error</h1>
@@ -185,7 +185,7 @@ export default function ProviderResponsePage() {
     return (
       <div style={styles.container}>
         <div style={styles.card}>
-          <div style={styles.iconCircle(
+          <div style={getIconCircleStyle(
             responseType === 'accept' ? '#dcfce7' : 
             responseType === 'counter' ? '#dbeafe' : '#fee2e2'
           )}>
@@ -361,6 +361,18 @@ export default function ProviderResponsePage() {
   );
 }
 
+// Helper function for icon circle (not in styles object)
+const getIconCircleStyle = (bg: string): React.CSSProperties => ({
+  width: 80,
+  height: 80,
+  borderRadius: '50%',
+  background: bg,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  margin: '40px auto 24px',
+});
+
 // Styles
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -392,16 +404,6 @@ const styles: Record<string, React.CSSProperties> = {
     animation: 'spin 0.8s linear infinite',
     margin: '40px auto',
   },
-  iconCircle: (bg: string) => ({
-    width: 80,
-    height: 80,
-    borderRadius: '50%',
-    background: bg,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '40px auto 24px',
-  }),
   title: {
     fontSize: 24,
     fontWeight: 700,
