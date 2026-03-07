@@ -277,9 +277,9 @@ export default function BillDetailPage() {
       const negData = await res.json();
       const negotiationId = negData.negotiation?.id;
       
-      // Determine send method and recipient
-      const sendMethod = bill?.provider_fax ? 'fax' : 'email';
-      const recipient = bill?.provider_fax || bill?.provider_email;
+      // Determine send method and recipient (prefer email over fax)
+      const sendMethod = bill?.provider_email ? 'email' : 'fax';
+      const recipient = bill?.provider_email || bill?.provider_fax;
       
       if (recipient && negotiationId) {
         // Send the offer via email/fax
