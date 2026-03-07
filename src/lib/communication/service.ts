@@ -157,13 +157,23 @@ export class CommunicationService {
     
     // Build MIME message
     const boundary = `boundary-${Date.now()}`;
-    const rawMessage = [
+    
+    // Build headers array (only include CC if present)
+    const headers = [
       `From: DOKit <${fromEmail}>`,
       `To: ${to}`,
-      cc?.length ? `Cc: ${cc.join(', ')}` : '',
+    ];
+    if (cc && cc.length > 0) {
+      headers.push(`Cc: ${cc.join(', ')}`);
+    }
+    headers.push(
       `Subject: ${subject}`,
       `MIME-Version: 1.0`,
-      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`
+    );
+    
+    const rawMessage = [
+      ...headers,
       '',
       `--${boundary}`,
       `Content-Type: text/plain; charset=UTF-8`,
@@ -176,7 +186,7 @@ export class CommunicationService {
       htmlBody,
       '',
       `--${boundary}--`
-    ].filter(Boolean).join('\r\n');
+    ].join('\r\n');
     
     const command = new SendRawEmailCommand({
       RawMessage: {
