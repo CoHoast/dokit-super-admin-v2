@@ -113,14 +113,14 @@ export default function BillDetailPage() {
         setNegotiations(data.negotiations);
       }
       
-      // Calculate suggested offer if fair_price exists
-      if (billData.fair_price && !offerAmount) {
-        setOfferAmount(Math.round(billData.fair_price * 0.6).toString()); // Start at 60% of fair price
+      // Calculate suggested offer if fair_price exists (only on initial load)
+      if (billData.fair_price) {
+        setOfferAmount(prev => prev || Math.round(billData.fair_price * 0.6).toString());
       }
     } catch (error) {
       console.error('Error fetching bill:', error);
     }
-  }, [billId, offerAmount]);
+  }, [billId]); // Removed offerAmount - was causing re-fetch on every keystroke
 
   const fetchNegotiations = useCallback(async () => {
     try {
