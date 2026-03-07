@@ -431,11 +431,54 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET endpoint for cron/health check
-export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    service: 'bill-negotiator-auto-processor',
-    timestamp: new Date().toISOString()
-  });
+// GET endpoint for cron - supports secret key in URL for easy cron setup
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const secret = searchParams.get('secret');
+  const action = searchParams.get('action') || 'process_all';
+  const clientId = searchParams.get('clientId');
+  
+  // Health check (no secret)
+  if (!secret) {
+    return NextResponse.json({
+      status: 'ok',
+      service: 'bill-negotiator-auto-processor',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
+  // Validate secret
+  if (secret !== CRON_SECRET) {
+    return NextResponse.json({ error: 'Invalid secret' }, { status: 401 });
+  }
+  
+  // Run the processor
+  try {
+    let result: { processed: number; errors: string[] } = { processed: 0, errors: [] };
+    const cid = clientId ? parseInt(clientId) : undefined;
+    
+    if (action === 'process_new_bills') {
+      result = await processNewBills(cid);
+    } else if (action === 'process_counters') {
+      result = await processCounters(cid);
+    } else {
+      const billsResult = await processNewBills(cid);
+      const countersResult = await processCounters(cid);
+      result = {
+        processed: billsResult.processed + countersResult.processed,
+        errors: [...billsResult.errors, ...countersResult.errors]
+      };
+    }
+    
+    console.log(`[CRON] Processed ${result.processed} items, ${result.errors.length} errors`);
+    
+    return NextResponse.json({
+      success: true,
+      ...result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('[CRON] Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
 }
