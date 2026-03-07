@@ -694,36 +694,35 @@ function PlatformDashboard({ client, clients }: { client: any; clients: any[] })
 
 // Main Dashboard Page
 export default function DashboardPage() {
-  const { selectedClient, clients } = useClient();
+  const { selectedClient, clients, refreshClients } = useClient();
   const [clientStats, setClientStats] = useState<ClientStats>({});
   const [syncing, setSyncing] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   const client = selectedClient || (clients && clients.length > 0 ? clients[0] : null);
 
-  // Fetch stats for custom dashboard clients
+  // Use stats from client object (already synced), or fetch fresh
   useEffect(() => {
     if (client && client.dashboardType === 'custom') {
-      fetchClientStats();
-    }
-  }, [client?.id]);
-
-  const fetchClientStats = async () => {
-    if (!client) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/clients/${client.id}/sync-stats`);
-      const data = await res.json();
-      if (data.stats) {
-        setClientStats(data.stats);
-      } else if (data.latestStats) {
-        setClientStats(data.latestStats);
+      // Use existing stats from client object first
+      if (client.stats && Object.keys(client.stats).length > 0) {
+        // The stats object from API has nested structure, extract it
+        const stats = client.stats;
+        setClientStats({
+          totalProcessed: stats.totalProcessed || stats.totalDocuments || 0,
+          processedToday: stats.processedToday || stats.documentsToday || 0,
+          processedThisWeek: stats.processedThisWeek || 0,
+          processedThisMonth: stats.processedThisMonth || stats.documentsThisMonth || 0,
+          totalBilled: stats.totalBilled || 0,
+          totalRepriced: stats.totalRepriced || 0,
+          totalSavings: stats.totalSavings || 0,
+          savingsPercent: stats.savingsPercent || 0,
+          statusCounts: stats.statusCounts || {},
+          batchStats: stats.batchStats || {},
+          custom: stats.custom || {},
+        });
       }
-    } catch (error) {
-      console.error('Failed to fetch client stats:', error);
     }
-    setLoading(false);
-  };
+  }, [client?.id, client?.stats]);
 
   const handleSync = async () => {
     if (!client) return;
@@ -733,6 +732,8 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.stats) {
         setClientStats(data.stats);
+        // Refresh clients to get updated stats in sidebar
+        refreshClients();
       }
     } catch (error) {
       console.error('Sync failed:', error);
