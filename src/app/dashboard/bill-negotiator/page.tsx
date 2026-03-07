@@ -162,6 +162,27 @@ export default function BillNegotiatorPage() {
             <option value="all">All Time</option>
           </select>
           <Link
+            href="/dashboard/bill-negotiator/analytics"
+            style={{
+              padding: '10px 20px',
+              background: 'white',
+              color: '#6366f1',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: 600,
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              border: '2px solid #6366f1'
+            }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            Analytics
+          </Link>
+          <Link
             href="/dashboard/bill-negotiator/bills"
             style={{
               padding: '10px 20px',
