@@ -7,7 +7,7 @@ const JWT_SECRET = new TextEncoder().encode(
 );
 
 // Public routes that don't require authentication
-const publicRoutes = ['/login', '/login/mfa', '/login/recovery', '/api/auth', '/api/health', '/api/db', '/api/migrations'];
+const publicRoutes = ['/login', '/login/mfa', '/login/recovery', '/api/auth', '/api/health', '/api/db', '/api/migrations', '/api/clients'];
 
 // Routes that require auth but not full MFA
 const partialAuthRoutes = ['/setup-mfa', '/change-password'];
