@@ -406,7 +406,7 @@ export default function BillNegotiatorPage() {
       {selectedClient && (
         <div style={{ marginTop: '32px' }}>
           <IntakeSourcesManager 
-            clientId={selectedClient.id}
+            clientId={typeof selectedClient.id === 'string' ? parseInt(selectedClient.id) : selectedClient.id}
             workflowKey="bill-negotiator"
             workflowName="Bill Negotiator"
           />

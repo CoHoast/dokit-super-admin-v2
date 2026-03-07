@@ -361,7 +361,7 @@ export default function BillsListPage() {
       {/* Bulk Upload Modal */}
       {showBulkUpload && selectedClient && (
         <BulkUploadModal
-          clientId={selectedClient.id}
+          clientId={typeof selectedClient.id === 'string' ? parseInt(selectedClient.id) : selectedClient.id}
           workflowKey="bill-negotiator"
           workflowName="Bill Negotiator"
           onClose={() => setShowBulkUpload(false)}
