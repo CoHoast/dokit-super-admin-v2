@@ -331,6 +331,11 @@ async function processCounters(clientId?: number): Promise<{ processed: number; 
           `, [sendMethod, newNegId]);
           await pool.query(`UPDATE bills SET status = 'offer_sent', updated_at = NOW() WHERE id = $1`, [row.bill_id]);
           
+          // Mark the OLD negotiation as processed so it doesn't get picked up again
+          await pool.query(`
+            UPDATE negotiations SET response_type = 'counter_responded', updated_at = NOW() WHERE id = $1
+          `, [row.id]);
+          
           console.log(`[AUTO] Sent counter-counter for bill ${row.bill_id}: $${newOffer} via ${sendMethod}`);
           processed++;
         } else {
