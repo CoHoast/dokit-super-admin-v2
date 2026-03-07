@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
 
+// Support both GET and POST for easier testing
+export async function GET() {
+  return runMigration();
+}
+
 export async function POST() {
+  return runMigration();
+}
+
+async function runMigration() {
   try {
     // Add custom dashboard fields to clients table
     await pool.query(`
