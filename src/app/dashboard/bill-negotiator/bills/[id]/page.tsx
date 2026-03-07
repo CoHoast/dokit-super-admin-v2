@@ -96,10 +96,15 @@ export default function BillDetailPage() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [showResponseModal, setShowResponseModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [offerAmount, setOfferAmount] = useState('');
   const [offerStrategy, setOfferStrategy] = useState('cash_pay');
   const [responseType, setResponseType] = useState('accepted');
   const [counterAmount, setCounterAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('check');
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentAmount, setPaymentAmount] = useState('');
 
   const fetchBill = useCallback(async () => {
     try {
@@ -406,17 +411,45 @@ export default function BillDetailPage() {
     setActionLoading(false);
   };
 
-  const markPaid = async () => {
+  const recordPayment = async () => {
+    if (!paymentReference) {
+      alert('Please enter a payment reference (check #, transaction ID, etc.)');
+      return;
+    }
+    
     setActionLoading(true);
     try {
+      // Get the settled negotiation to update
+      const settledNeg = negotiations.find(n => n.response_type === 'accepted');
+      
+      if (settledNeg) {
+        // Update negotiation with payment details
+        await fetch(`/api/db/bill-negotiator/negotiations/${settledNeg.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            payment_method: paymentMethod,
+            payment_date: paymentDate,
+            payment_reference: paymentReference
+          })
+        });
+      }
+      
+      // Update bill status to paid
       await fetch(`/api/db/bill-negotiator/bills/${billId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'paid' })
       });
+      
+      setShowPaymentModal(false);
+      setPaymentReference('');
+      alert('✅ Payment recorded successfully!');
       await fetchBill();
+      await fetchNegotiations();
     } catch (error) {
-      console.error('Error marking paid:', error);
+      console.error('Error recording payment:', error);
+      alert('Failed to record payment');
     }
     setActionLoading(false);
   };
@@ -585,7 +618,14 @@ export default function BillDetailPage() {
             
             {bill.status === 'settled' && (
               <button
-                onClick={markPaid}
+                onClick={() => {
+                  // Pre-fill payment amount from the settled negotiation
+                  const settledNeg = negotiations.find(n => n.response_type === 'accepted');
+                  if (settledNeg?.final_amount) {
+                    setPaymentAmount(String(settledNeg.final_amount));
+                  }
+                  setShowPaymentModal(true);
+                }}
                 disabled={actionLoading}
                 style={{
                   padding: '12px 24px',
@@ -602,9 +642,9 @@ export default function BillDetailPage() {
                 }}
               >
                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M5 13l4 4L19 7"/>
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
                 </svg>
-                {actionLoading ? 'Marking...' : 'Mark as Paid'}
+                Record Payment
               </button>
             )}
           </div>
@@ -1283,6 +1323,157 @@ export default function BillDetailPage() {
                 }}
               >
                 {actionLoading ? 'Saving...' : 'Record Response'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            width: '100%',
+            maxWidth: '480px',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
+          }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
+              💰 Record Payment
+            </h2>
+            <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
+              Record payment details to mark this bill as paid.
+            </p>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+                Payment Method
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="check">Check</option>
+                <option value="ach">ACH Transfer</option>
+                <option value="wire">Wire Transfer</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="virtual_card">Virtual Card</option>
+              </select>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+                Payment Date
+              </label>
+              <input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+                Reference # (Check #, Transaction ID, etc.)
+              </label>
+              <input
+                type="text"
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="e.g., CHK-12345 or TXN-ABC123"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+            
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+                Amount Paid
+              </label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>$</span>
+                <input
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="0"
+                  style={{
+                    width: '100%',
+                    padding: '12px 12px 12px 28px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    background: '#f8fafc'
+                  }}
+                  readOnly
+                />
+              </div>
+              <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                Amount from accepted settlement
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  background: 'white',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={recordPayment}
+                disabled={actionLoading || !paymentReference}
+                style={{
+                  padding: '12px 24px',
+                  background: 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  cursor: (actionLoading || !paymentReference) ? 'not-allowed' : 'pointer',
+                  opacity: (actionLoading || !paymentReference) ? 0.7 : 1
+                }}
+              >
+                {actionLoading ? 'Recording...' : 'Record Payment'}
               </button>
             </div>
           </div>
