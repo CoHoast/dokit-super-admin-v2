@@ -168,22 +168,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div>
       {/* Mobile Header */}
       <div className="mobile-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ 
-            width: 32, 
-            height: 32, 
-            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', 
-            borderRadius: '8px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(99, 102, 241, 0.25)'
-          }}>
-            <svg width="18" height="18" fill="white" viewBox="0 0 24 24">
-              <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z"/>
-            </svg>
-          </div>
-          <span style={{ fontSize: '18px', fontWeight: 700, color: '#111827' }}>DOKit</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <img 
+            src="/dokit-logo.png" 
+            alt="DOKit" 
+            style={{ height: '28px', width: 'auto' }}
+          />
         </div>
         <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)}>
           <svg width="24" height="24" fill="none" stroke="#374151" strokeWidth="2" viewBox="0 0 24 24">
@@ -199,22 +189,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ 
-                width: 36, 
-                height: 36, 
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', 
-                borderRadius: '10px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.25)'
-              }}>
-                <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
-                  <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z"/>
-                </svg>
-              </div>
-              <span style={{ fontSize: '20px', fontWeight: 700, color: '#111827', letterSpacing: '-0.02em' }}>DOKit</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img 
+                src="/dokit-logo.png" 
+                alt="DOKit" 
+                style={{ height: '32px', width: 'auto' }}
+              />
             </div>
             <button 
               onClick={closeSidebar}
@@ -226,7 +206,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </svg>
             </button>
           </div>
-          <p style={{ color: '#9ca3af', marginTop: '4px' }}>Super Admin</p>
         </div>
 
         {/* Client Switcher */}
