@@ -419,30 +419,23 @@ export function AutomationSettings({ clientId, onSave }: AutomationSettingsProps
             <label style={styles.label}>Response Delay Mode</label>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginTop: '8px' }}>
               {[
-                { value: 'instant', label: '⚡ Instant', desc: '< 1 min (testing only)' },
-                { value: 'quick', label: '🏃 Quick', desc: '15-30 minutes' },
-                { value: 'natural', label: '🧑 Natural', desc: '1-4 hours (random)' },
-                { value: 'deliberate', label: '🤔 Deliberate', desc: '4-24 hours' },
-                { value: 'custom', label: '⚙️ Custom', desc: 'Set your own' },
-              ].map(({ value, label, desc }) => (
+                { value: 'instant', label: '⚡ Instant', desc: '< 1 min (testing only)', min: 0, max: 1 },
+                { value: 'quick', label: '🏃 Quick', desc: '15-30 minutes', min: 15, max: 30 },
+                { value: 'natural', label: '🧑 Natural', desc: '1-4 hours (random)', min: 60, max: 240 },
+                { value: 'deliberate', label: '🤔 Deliberate', desc: '4-24 hours', min: 240, max: 1440 },
+                { value: 'custom', label: '⚙️ Custom', desc: 'Set your own', min: null, max: null },
+              ].map(({ value, label, desc, min, max }) => (
                 <div
                   key={value}
                   onClick={() => {
-                    updateSetting('response_delay_mode', value as any);
-                    // Set defaults based on mode
-                    if (value === 'instant') {
-                      updateSetting('response_delay_min_minutes', 0);
-                      updateSetting('response_delay_max_minutes', 1);
-                    } else if (value === 'quick') {
-                      updateSetting('response_delay_min_minutes', 15);
-                      updateSetting('response_delay_max_minutes', 30);
-                    } else if (value === 'natural') {
-                      updateSetting('response_delay_min_minutes', 60);
-                      updateSetting('response_delay_max_minutes', 240);
-                    } else if (value === 'deliberate') {
-                      updateSetting('response_delay_min_minutes', 240);
-                      updateSetting('response_delay_max_minutes', 1440);
-                    }
+                    // Update all values at once to avoid state race conditions
+                    if (!settings) return;
+                    const updates: Partial<NegotiationSettings> = {
+                      response_delay_mode: value as any
+                    };
+                    if (min !== null) updates.response_delay_min_minutes = min;
+                    if (max !== null) updates.response_delay_max_minutes = max;
+                    setSettings({ ...settings, ...updates });
                   }}
                   style={{
                     padding: '14px 12px',
