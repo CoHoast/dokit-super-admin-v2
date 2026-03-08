@@ -438,13 +438,21 @@ export async function GET(request: NextRequest) {
   const action = searchParams.get('action') || 'process_all';
   const clientId = searchParams.get('clientId');
   
-  // Health check (no secret) - also show cron status
+  // Health check (no secret) - also show cron status and auto-start if needed
   if (!secret) {
     let cronStatus = 'unknown';
     try {
-      const { isCronRunning } = await import('@/lib/cron-scheduler');
+      const { isCronRunning, startCronScheduler } = await import('@/lib/cron-scheduler');
+      
+      // Auto-start cron if not running (self-healing)
+      if (!isCronRunning()) {
+        console.log('[AUTO-PROCESS] Cron not running, attempting to start...');
+        startCronScheduler();
+      }
+      
       cronStatus = isCronRunning() ? 'running' : 'stopped';
-    } catch {
+    } catch (e) {
+      console.error('[AUTO-PROCESS] Error checking/starting cron:', e);
       cronStatus = 'not-initialized';
     }
     

@@ -58,12 +58,14 @@ export function startCronScheduler() {
     return;
   }
   
-  // Only run in production or if explicitly enabled
+  // Run in production or if explicitly enabled
   const shouldRun = process.env.NODE_ENV === 'production' || 
-                    process.env.ENABLE_CRON === 'true';
+                    process.env.ENABLE_CRON === 'true' ||
+                    process.env.RAILWAY_ENVIRONMENT; // Railway always runs
   
   if (!shouldRun) {
     console.log('[CRON] Scheduler disabled in development (set ENABLE_CRON=true to enable)');
+    console.log('[CRON] NODE_ENV:', process.env.NODE_ENV);
     return;
   }
   
