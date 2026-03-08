@@ -35,6 +35,7 @@ export default function NewBillPage() {
     provider_npi: '',
     provider_phone: '',
     provider_fax: '',
+    provider_email: '',
     provider_address: '',
     account_number: '',
     date_of_service: '',
@@ -167,6 +168,7 @@ export default function NewBillPage() {
     const providerNpi = getValue(data.provider, 'npi');
     const providerPhone = getValue(data.provider, 'phone');
     const providerFax = getValue(data.provider, 'fax');
+    const providerEmail = getValue(data.provider, 'email');
     const providerAddress = getValue(data.provider, 'address');
     
     // Populate service info
@@ -183,6 +185,7 @@ export default function NewBillPage() {
       provider_npi: providerNpi,
       provider_phone: providerPhone,
       provider_fax: providerFax,
+      provider_email: providerEmail,
       provider_address: providerAddress,
       date_of_service: dateOfService ? formatDateForInput(dateOfService) : '',
       total_billed: totalBilled ? String(totalBilled) : '',
@@ -251,6 +254,8 @@ export default function NewBillPage() {
         providerNpi: formData.provider_npi,
         providerPhone: formData.provider_phone,
         providerFax: formData.provider_fax,
+        providerEmail: formData.provider_email,
+        providerAddress: formData.provider_address,
         accountNumber: formData.account_number || `ACC-${Date.now()}`,
         dateOfService: formData.date_of_service || new Date().toISOString().split('T')[0],
         totalBilled: parseFloat(formData.total_billed),
@@ -650,6 +655,46 @@ export default function NewBillPage() {
                   value={formData.provider_fax}
                   onChange={handleChange}
                   placeholder="(555) 123-4568"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+                  Provider Email
+                  <ConfidenceBadge field="email" />
+                </label>
+                <input
+                  type="email"
+                  name="provider_email"
+                  value={formData.provider_email}
+                  onChange={handleChange}
+                  placeholder="billing@provider.com"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+                  Provider Address
+                  <ConfidenceBadge field="address" />
+                </label>
+                <input
+                  type="text"
+                  name="provider_address"
+                  value={formData.provider_address}
+                  onChange={handleChange}
+                  placeholder="123 Medical Dr, Suite 100, City, ST 12345"
                   style={{
                     width: '100%',
                     padding: '12px',

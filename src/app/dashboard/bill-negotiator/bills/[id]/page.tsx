@@ -23,6 +23,7 @@ interface Bill {
   provider_name: string;
   provider_npi: string;
   provider_tax_id?: string;
+  provider_phone?: string;
   provider_email?: string;
   provider_fax?: string;
   provider_address?: string;
@@ -762,6 +763,31 @@ export default function BillDetailPage() {
                 <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px' }}>
                   <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Received</p>
                   <p style={{ fontWeight: 500, color: '#0f172a' }}>{formatDate(bill.received_at)}</p>
+                </div>
+              </div>
+              
+              {/* Provider Contact Info */}
+              <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e2e8f0' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '16px' }}>Provider Contact</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                  <div style={{ padding: '16px', background: bill.provider_phone ? '#f0fdf4' : '#fff7ed', borderRadius: '10px', border: bill.provider_phone ? '1px solid #bbf7d0' : '1px solid #fed7aa' }}>
+                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Phone</p>
+                    <p style={{ fontWeight: 500, color: bill.provider_phone ? '#166534' : '#9a3412' }}>
+                      {bill.provider_phone || 'Not available'}
+                    </p>
+                  </div>
+                  <div style={{ padding: '16px', background: bill.provider_fax ? '#f0fdf4' : '#fff7ed', borderRadius: '10px', border: bill.provider_fax ? '1px solid #bbf7d0' : '1px solid #fed7aa' }}>
+                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Fax</p>
+                    <p style={{ fontWeight: 500, color: bill.provider_fax ? '#166534' : '#9a3412' }}>
+                      {bill.provider_fax || 'Not available'}
+                    </p>
+                  </div>
+                  <div style={{ padding: '16px', background: bill.provider_email ? '#f0fdf4' : '#fff7ed', borderRadius: '10px', border: bill.provider_email ? '1px solid #bbf7d0' : '1px solid #fed7aa' }}>
+                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>Email</p>
+                    <p style={{ fontWeight: 500, color: bill.provider_email ? '#166534' : '#9a3412' }}>
+                      {bill.provider_email || 'Not available'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
