@@ -5,7 +5,14 @@ import { extractTextFromPdf } from '@/lib/textract-service';
 // System prompt for GPT-4o Vision (images)
 const VISION_EXTRACTION_PROMPT = `You are a medical bill data extraction expert. Extract all relevant information from this medical bill image and return it as structured JSON.
 
-IMPORTANT: Look carefully for provider contact information (fax numbers, email addresses) in the letterhead, footer, or billing section. These are critical for automated bill negotiation.
+CRITICAL - PROVIDER CONTACT INFO IS REQUIRED:
+1. ALWAYS look for EMAIL ADDRESS - check header area, footer area, and any "Email:" labels
+2. ALWAYS look for FAX NUMBER - check header, footer, contact sections
+3. ALWAYS look for PHONE NUMBER - usually near provider name or in footer
+4. Email addresses typically look like: name@domain.com
+5. If you see "Email: xxxxx" anywhere on the bill, extract that email address
+
+These contact fields are essential for automated bill negotiation - do NOT skip them.
 
 Return this exact structure:
 {
@@ -57,12 +64,22 @@ Rules:
 - For charges/amounts, extract as numbers (not strings)
 - Include ALL line items found on the bill
 - Include ALL diagnosis codes found
-- If multiple pages, this may be one page of a multi-page document`;
+- If multiple pages, this may be one page of a multi-page document
+- ALWAYS include provider.email if ANY email address is visible (check header AND footer)
+- ALWAYS include provider.fax if ANY fax number is visible
+- ALWAYS include provider.phone if ANY phone number is visible`;
 
 // System prompt for GPT-4 Text (OCR text from PDFs)
 const TEXT_EXTRACTION_PROMPT = `You are a medical bill data extraction expert. The following text was extracted via OCR from a medical bill PDF. Extract all relevant information and return it as structured JSON.
 
-IMPORTANT: Look carefully for provider contact information (fax numbers, email addresses) in the text. These are critical for automated bill negotiation. Fax numbers often appear near phone numbers. Email addresses may be in billing sections.
+CRITICAL - PROVIDER CONTACT INFO IS REQUIRED:
+1. ALWAYS look for EMAIL ADDRESS - search for patterns like "Email:" or "@" symbols
+2. ALWAYS look for FAX NUMBER - search for "Fax:" or fax number patterns
+3. ALWAYS look for PHONE NUMBER - usually near provider info
+4. Email addresses look like: name@domain.com (e.g., billing@hospital.com)
+5. If you see ANY email address in the text, include it in provider.email
+
+These contact fields are essential for automated bill negotiation - do NOT skip them.
 
 Return this exact structure:
 {
@@ -115,7 +132,10 @@ Rules:
 - Include ALL line items found
 - Include ALL diagnosis codes found
 - Parse dates in various formats and normalize to MM/DD/YYYY
-- Handle OCR errors gracefully (e.g., "0" vs "O", "1" vs "l")`;
+- Handle OCR errors gracefully (e.g., "0" vs "O", "1" vs "l")
+- ALWAYS include provider.email if ANY email address is found (look for @ symbols)
+- ALWAYS include provider.fax if ANY fax number is found
+- ALWAYS include provider.phone if ANY phone number is found`;
 
 /**
  * Extract bill data from image using GPT-4o Vision
