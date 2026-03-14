@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { CommunicationService } from '@/lib/communication/service';
 
 // POST /api/bill-negotiator/send-offer - Send offer to provider
 export async function POST(request: NextRequest) {
@@ -32,16 +31,32 @@ export async function POST(request: NextRequest) {
     const bill = billResult.rows[0];
     const finalOffer = offerAmount || bill.fair_price;
 
-    // Create negotiation record
-    const negotiationResult = await pool.query(`
-      INSERT INTO negotiations (
-        bill_id, client_id, offer_amount, response_type, 
-        round_number, sent_at, created_at, updated_at
-      ) VALUES ($1, $2, $3, 'pending', 1, NOW(), NOW(), NOW())
-      RETURNING id
-    `, [billId, bill.client_id, finalOffer]);
+    // Check if negotiation already exists
+    const existingNeg = await pool.query(`
+      SELECT id FROM negotiations WHERE bill_id = $1 ORDER BY round_number DESC LIMIT 1
+    `, [billId]);
 
-    const negotiationId = negotiationResult.rows[0].id;
+    let negotiationId;
+    
+    if (existingNeg.rows.length > 0) {
+      // Update existing negotiation
+      negotiationId = existingNeg.rows[0].id;
+      await pool.query(`
+        UPDATE negotiations 
+        SET offer_amount = $1, sent_at = NOW(), updated_at = NOW()
+        WHERE id = $2
+      `, [finalOffer, negotiationId]);
+    } else {
+      // Create new negotiation record
+      const negotiationResult = await pool.query(`
+        INSERT INTO negotiations (
+          bill_id, client_id, offer_amount, response_type, 
+          round_number, sent_at, created_at, updated_at
+        ) VALUES ($1, $2, $3, 'pending', 1, NOW(), NOW(), NOW())
+        RETURNING id
+      `, [billId, bill.client_id, finalOffer]);
+      negotiationId = negotiationResult.rows[0].id;
+    }
 
     // Update bill status
     await pool.query(`
@@ -52,29 +67,8 @@ export async function POST(request: NextRequest) {
       WHERE id = $2
     `, [finalOffer, billId]);
 
-    // Send communication (email/fax)
-    const commService = new CommunicationService();
-    const sendMethod = method || (bill.provider_email ? 'email' : 'fax');
-    
-    try {
-      await commService.sendOffer({
-        billId,
-        negotiationId,
-        method: sendMethod,
-        recipient: sendMethod === 'email' ? bill.provider_email : bill.provider_fax,
-        letterType: 'initial_offer'
-      }, {
-        clientName: bill.client_name,
-        memberName: bill.member_name,
-        providerName: bill.provider_name,
-        totalBilled: bill.total_billed,
-        offerAmount: finalOffer,
-        serviceDate: bill.service_date,
-        accountNumber: bill.account_number
-      });
-    } catch (commError) {
-      console.error('Communication error (non-fatal):', commError);
-    }
+    // Note: Actual email/fax sending handled by auto-process or manual trigger
+    // This just records the offer in the database
 
     return NextResponse.json({
       success: true,

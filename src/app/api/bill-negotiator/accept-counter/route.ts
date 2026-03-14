@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { pool } from '@/lib/db';
-import { CommunicationService } from '@/lib/communication/service';
 
 // POST /api/bill-negotiator/accept-counter - Accept provider's counter-offer
 export async function POST(request: NextRequest) {
   try {
-    const { billId, negotiationId } = await request.json();
+    const { billId } = await request.json();
 
     if (!billId) {
       return NextResponse.json(
@@ -16,11 +15,9 @@ export async function POST(request: NextRequest) {
 
     // Get the latest negotiation for this bill
     const negotiationResult = await pool.query(`
-      SELECT n.*, b.total_billed, b.provider_name, b.member_name, b.client_id,
-             c.name as client_name
+      SELECT n.*, b.total_billed
       FROM negotiations n
       JOIN bills b ON n.bill_id = b.id
-      LEFT JOIN clients c ON b.client_id = c.id
       WHERE n.bill_id = $1
       ORDER BY n.round_number DESC
       LIMIT 1
@@ -34,10 +31,10 @@ export async function POST(request: NextRequest) {
     }
 
     const negotiation = negotiationResult.rows[0];
-    const counterAmount = negotiation.counter_amount;
+    const counterAmount = negotiation.counter_amount || negotiation.offer_amount;
     const totalBilled = negotiation.total_billed;
     const savingsAmount = totalBilled - counterAmount;
-    const savingsPercent = (savingsAmount / totalBilled) * 100;
+    const savingsPercent = totalBilled > 0 ? (savingsAmount / totalBilled) * 100 : 0;
 
     // Update negotiation to accepted
     await pool.query(`
@@ -58,28 +55,6 @@ export async function POST(request: NextRequest) {
           updated_at = NOW()
       WHERE id = $2
     `, [counterAmount, billId]);
-
-    // Send acceptance communication
-    const commService = new CommunicationService();
-    try {
-      await commService.sendOffer({
-        billId,
-        negotiationId: negotiation.id,
-        method: 'email',
-        recipient: negotiation.provider_email,
-        letterType: 'acceptance'
-      }, {
-        clientName: negotiation.client_name,
-        memberName: negotiation.member_name,
-        providerName: negotiation.provider_name,
-        totalBilled,
-        finalAmount: counterAmount,
-        savingsAmount,
-        savingsPercent
-      });
-    } catch (commError) {
-      console.error('Communication error (non-fatal):', commError);
-    }
 
     return NextResponse.json({
       success: true,
