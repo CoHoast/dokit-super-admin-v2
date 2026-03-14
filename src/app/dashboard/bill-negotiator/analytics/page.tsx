@@ -1,408 +1,626 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useTheme } from '../ThemeProvider';
+import { motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
+import CountUp from 'react-countup';
+import { DEMO_MODE, formatCurrency } from '@/lib/sirkl-api';
 
-interface ClientStats {
-  client_id: number;
-  client_name: string;
-  total_bills: number;
-  total_billed: number;
-  total_savings: number;
-  settled_count: number;
-  pending_count: number;
-  avg_settlement_percent: number;
-}
+// Dynamic imports for Recharts
+const AreaChart = dynamic(() => import('recharts').then(mod => mod.AreaChart), { ssr: false });
+const Area = dynamic(() => import('recharts').then(mod => mod.Area), { ssr: false });
+const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false });
+const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
+const Line = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false });
+const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false });
+const Pie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
+const Cell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: false });
+const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
+const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
+const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
+const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
+const Legend = dynamic(() => import('recharts').then(mod => mod.Legend), { ssr: false });
 
-interface OverallStats {
-  total_clients: number;
-  total_bills: number;
-  total_billed: number;
-  total_savings: number;
-  total_settled: number;
-  total_pending: number;
-  avg_settlement_percent: number;
-  bills_by_status: Record<string, number>;
-  savings_trend: { month: string; savings: number }[];
-}
+// Mock data
+const savingsTrendData = [
+  { month: 'Aug', savings: 38000, bills: 45, target: 35000 },
+  { month: 'Sep', savings: 42000, bills: 52, target: 40000 },
+  { month: 'Oct', savings: 51000, bills: 61, target: 45000 },
+  { month: 'Nov', savings: 58000, bills: 68, target: 50000 },
+  { month: 'Dec', savings: 52000, bills: 58, target: 55000 },
+  { month: 'Jan', savings: 68000, bills: 72, target: 60000 },
+  { month: 'Feb', savings: 78000, bills: 84, target: 65000 },
+  { month: 'Mar', savings: 85000, bills: 91, target: 70000 },
+];
+
+const statusBreakdownData = [
+  { name: 'Settled', value: 89, color: '#4ade80' },
+  { name: 'Negotiating', value: 24, color: '#a78bfa' },
+  { name: 'Processing', value: 28, color: '#60a5fa' },
+  { name: 'Received', value: 15, color: '#94a3b8' },
+];
+
+const providerPerformanceData = [
+  { provider: 'Cleveland Medical', bills: 24, savings: 58, avgDays: 3.2 },
+  { provider: 'Regional Hospital', bills: 18, savings: 52, avgDays: 4.1 },
+  { provider: 'City Health Partners', bills: 15, savings: 61, avgDays: 2.8 },
+  { provider: 'Metro Surgery', bills: 12, savings: 48, avgDays: 5.2 },
+  { provider: 'Lakeside Imaging', bills: 9, savings: 55, avgDays: 3.5 },
+  { provider: 'Heart & Vascular', bills: 8, savings: 45, avgDays: 6.1 },
+];
+
+const responseTimeData = [
+  { range: '< 1 day', count: 12, percent: 15 },
+  { range: '1-2 days', count: 28, percent: 35 },
+  { range: '3-5 days', count: 24, percent: 30 },
+  { range: '5-7 days', count: 10, percent: 12 },
+  { range: '7+ days', count: 6, percent: 8 },
+];
+
+const savingsByTypeData = [
+  { type: 'Hospital', savings: 245000, bills: 42 },
+  { type: 'Imaging', savings: 89000, bills: 38 },
+  { type: 'Surgery', savings: 156000, bills: 24 },
+  { type: 'Lab', savings: 34000, bills: 52 },
+  { type: 'Specialist', savings: 67000, bills: 28 },
+];
+
+const weeklyTrendData = [
+  { week: 'W1', newBills: 18, settled: 12, savings: 24000 },
+  { week: 'W2', newBills: 22, settled: 19, savings: 31000 },
+  { week: 'W3', newBills: 15, settled: 21, savings: 28000 },
+  { week: 'W4', newBills: 25, settled: 18, savings: 35000 },
+];
 
 export default function AnalyticsPage() {
-  const [stats, setStats] = useState<OverallStats | null>(null);
-  const [clientStats, setClientStats] = useState<ClientStats[]>([]);
+  const { isDark, colors } = useTheme();
+  const [period, setPeriod] = useState<'week' | 'month' | 'quarter' | 'year'>('month');
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('30d');
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [timeRange]);
+    setTimeout(() => setLoading(false), 600);
+  }, []);
 
-  const fetchAnalytics = async () => {
-    setLoading(true);
-    try {
-      // Fetch all clients first
-      const clientsRes = await fetch('/api/db/clients');
-      const clientsData = await clientsRes.json();
-      const clients = clientsData.clients || [];
+  const kpis = [
+    { 
+      label: 'Total Savings', 
+      value: 468780, 
+      prefix: '$', 
+      change: '+18.3%', 
+      trend: 'up',
+      subtext: 'vs last period',
+      icon: '💰',
+    },
+    { 
+      label: 'Bills Processed', 
+      value: 156, 
+      prefix: '', 
+      change: '+24', 
+      trend: 'up',
+      subtext: 'this period',
+      icon: '📄',
+    },
+    { 
+      label: 'Avg Savings Rate', 
+      value: 52.4, 
+      prefix: '', 
+      suffix: '%',
+      change: '+3.2%', 
+      trend: 'up',
+      subtext: 'per bill',
+      icon: '📈',
+    },
+    { 
+      label: 'Avg Days to Settle', 
+      value: 4.2, 
+      prefix: '', 
+      suffix: ' days',
+      change: '-0.8', 
+      trend: 'down',
+      subtext: 'faster than target',
+      icon: '⚡',
+    },
+    { 
+      label: 'Acceptance Rate', 
+      value: 66.4, 
+      prefix: '', 
+      suffix: '%',
+      change: '+5.1%', 
+      trend: 'up',
+      subtext: 'first offer accepted',
+      icon: '✅',
+    },
+    { 
+      label: 'Auto-Processed', 
+      value: 78, 
+      prefix: '', 
+      suffix: '%',
+      change: '+12%', 
+      trend: 'up',
+      subtext: 'no human needed',
+      icon: '🤖',
+    },
+  ];
 
-      // Fetch bills for each client
-      const allStats: ClientStats[] = [];
-      let overall: OverallStats = {
-        total_clients: clients.length,
-        total_bills: 0,
-        total_billed: 0,
-        total_savings: 0,
-        total_settled: 0,
-        total_pending: 0,
-        avg_settlement_percent: 0,
-        bills_by_status: {},
-        savings_trend: []
-      };
-
-      for (const client of clients) {
-        const billsRes = await fetch(`/api/db/bill-negotiator/bills?clientId=${client.id}&limit=500`);
-        const billsData = await billsRes.json();
-        const bills = billsData.bills || [];
-
-        if (bills.length === 0) continue;
-
-        const clientStat: ClientStats = {
-          client_id: client.id,
-          client_name: client.name,
-          total_bills: bills.length,
-          total_billed: 0,
-          total_savings: 0,
-          settled_count: 0,
-          pending_count: 0,
-          avg_settlement_percent: 0
-        };
-
-        bills.forEach((bill: { status: string; total_billed: number; fair_price?: number }) => {
-          clientStat.total_billed += bill.total_billed || 0;
-          
-          // Count by status
-          overall.bills_by_status[bill.status] = (overall.bills_by_status[bill.status] || 0) + 1;
-          
-          if (bill.status === 'settled' || bill.status === 'paid') {
-            clientStat.settled_count++;
-            const savings = bill.total_billed - (bill.fair_price || bill.total_billed);
-            clientStat.total_savings += savings;
-            overall.total_savings += savings;
-            overall.total_settled++;
-          } else if (['received', 'analyzing', 'ready_to_negotiate', 'offer_sent', 'awaiting_response', 'counter_received'].includes(bill.status)) {
-            clientStat.pending_count++;
-            overall.total_pending++;
-          }
-        });
-
-        if (clientStat.settled_count > 0 && clientStat.total_billed > 0) {
-          clientStat.avg_settlement_percent = ((clientStat.total_billed - clientStat.total_savings) / clientStat.total_billed) * 100;
-        }
-
-        overall.total_bills += clientStat.total_bills;
-        overall.total_billed += clientStat.total_billed;
-
-        if (clientStat.total_bills > 0) {
-          allStats.push(clientStat);
-        }
-      }
-
-      // Calculate overall average
-      if (overall.total_settled > 0 && overall.total_billed > 0) {
-        overall.avg_settlement_percent = ((overall.total_billed - overall.total_savings) / overall.total_billed) * 100;
-      }
-
-      // Sort by total bills descending
-      allStats.sort((a, b) => b.total_bills - a.total_bills);
-
-      setClientStats(allStats);
-      setStats(overall);
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-    }
-    setLoading(false);
-  };
-
-  const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `$${(amount / 1000000).toFixed(1)}M`;
-    }
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(0)}K`;
-    }
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const formatFullCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0
-    }).format(amount);
+  const chartColors = {
+    primary: colors.accent,
+    success: isDark ? '#4ade80' : '#16a34a',
+    blue: isDark ? '#60a5fa' : '#2563eb',
+    purple: isDark ? '#a78bfa' : '#7c3aed',
+    amber: isDark ? '#fbbf24' : '#d97706',
+    gray: isDark ? '#94a3b8' : '#64748b',
   };
 
   if (loading) {
     return (
-      <div style={{ padding: '32px', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <p style={{ color: '#64748b' }}>Loading analytics...</p>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '40px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <div style={{
+            width: '24px',
+            height: '24px',
+            border: `2px solid ${colors.border}`,
+            borderTopColor: colors.accent,
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <span style={{ color: colors.textMuted }}>Loading analytics...</span>
+        </div>
+        <style jsx>{`@keyframes spin { to { transform: rotate(360deg); }}`}</style>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
+      <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
-            Cross-Client Analytics
+          <h1 style={{ fontSize: '24px', fontWeight: '700', color: colors.text, marginBottom: '4px' }}>
+            Analytics
           </h1>
-          <p style={{ color: '#64748b' }}>Bill Negotiator performance across all clients</p>
+          <p style={{ color: colors.textMuted, fontSize: '14px' }}>
+            Track savings, performance, and trends
+            {DEMO_MODE && (
+              <span style={{
+                marginLeft: '12px',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+                backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+                color: isDark ? '#fbbf24' : '#92400e',
+              }}>
+                DEMO DATA
+              </span>
+            )}
+          </p>
         </div>
-        <select
-          value={timeRange}
-          onChange={(e) => setTimeRange(e.target.value)}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {(['week', 'month', 'quarter', 'year'] as const).map(p => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: period === p ? colors.accent : colors.surface,
+                color: period === p ? '#fff' : colors.textMuted,
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '16px', marginBottom: '28px' }}>
+        {kpis.map((kpi, i) => (
+          <motion.div
+            key={kpi.label}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.05 }}
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: '14px',
+              border: `1px solid ${colors.border}`,
+              padding: '20px',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+              <span style={{ fontSize: '24px' }}>{kpi.icon}</span>
+              <span style={{
+                padding: '3px 8px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: '600',
+                backgroundColor: kpi.trend === 'up' 
+                  ? (isDark ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7')
+                  : (isDark ? 'rgba(59, 130, 246, 0.15)' : '#dbeafe'),
+                color: kpi.trend === 'up' ? chartColors.success : chartColors.blue,
+              }}>
+                {kpi.change}
+              </span>
+            </div>
+            <p style={{ 
+              fontSize: '28px', 
+              fontWeight: '700', 
+              color: colors.text,
+              marginBottom: '4px',
+            }}>
+              <CountUp
+                end={kpi.value}
+                prefix={kpi.prefix}
+                suffix={kpi.suffix || ''}
+                decimals={kpi.suffix === '%' || kpi.suffix === ' days' ? 1 : 0}
+                separator=","
+                duration={1.5}
+              />
+            </p>
+            <p style={{ fontSize: '12px', color: colors.textMuted }}>{kpi.label}</p>
+            <p style={{ fontSize: '11px', color: colors.textMuted, marginTop: '2px' }}>{kpi.subtext}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Main Charts Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        {/* Savings Trend */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
           style={{
-            padding: '10px 16px',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            fontSize: '14px',
-            color: '#374151',
-            cursor: 'pointer'
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`,
+            padding: '24px',
           }}
         >
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-          <option value="90d">Last 90 days</option>
-          <option value="all">All time</option>
-        </select>
-      </div>
-
-      {/* Overall Stats Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px', marginBottom: '32px' }}>
-        <div style={{ 
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-          borderRadius: '16px',
-          padding: '24px',
-          color: 'white'
-        }}>
-          <p style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px' }}>Total Bills</p>
-          <p style={{ fontSize: '32px', fontWeight: 700 }}>{stats?.total_bills || 0}</p>
-          <p style={{ fontSize: '13px', opacity: 0.8, marginTop: '8px' }}>{stats?.total_clients || 0} clients</p>
-        </div>
-
-        <div style={{ 
-          background: 'white',
-          borderRadius: '16px',
-          padding: '24px',
-          border: '1px solid #e2e8f0'
-        }}>
-          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Total Billed</p>
-          <p style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{formatCurrency(stats?.total_billed || 0)}</p>
-          <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '8px' }}>{formatFullCurrency(stats?.total_billed || 0)}</p>
-        </div>
-
-        <div style={{ 
-          background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-          borderRadius: '16px',
-          padding: '24px',
-          color: 'white'
-        }}>
-          <p style={{ fontSize: '13px', opacity: 0.9, marginBottom: '8px' }}>Total Savings</p>
-          <p style={{ fontSize: '32px', fontWeight: 700 }}>{formatCurrency(stats?.total_savings || 0)}</p>
-          <p style={{ fontSize: '13px', opacity: 0.8, marginTop: '8px' }}>{stats?.total_settled || 0} settled</p>
-        </div>
-
-        <div style={{ 
-          background: 'white',
-          borderRadius: '16px',
-          padding: '24px',
-          border: '1px solid #e2e8f0'
-        }}>
-          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Pending</p>
-          <p style={{ fontSize: '32px', fontWeight: 700, color: '#f59e0b' }}>{stats?.total_pending || 0}</p>
-          <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '8px' }}>awaiting action</p>
-        </div>
-
-        <div style={{ 
-          background: 'white',
-          borderRadius: '16px',
-          padding: '24px',
-          border: '1px solid #e2e8f0'
-        }}>
-          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Avg. Settlement</p>
-          <p style={{ fontSize: '32px', fontWeight: 700, color: '#6366f1' }}>
-            {stats?.avg_settlement_percent ? `${stats.avg_settlement_percent.toFixed(0)}%` : '-'}
-          </p>
-          <p style={{ fontSize: '13px', color: '#94a3b8', marginTop: '8px' }}>of original bill</p>
-        </div>
-      </div>
-
-      {/* Two Column Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-        {/* Client Comparison Table */}
-        <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a' }}>Client Comparison</h2>
-          </div>
-          
-          {clientStats.length === 0 ? (
-            <div style={{ padding: '48px', textAlign: 'center' }}>
-              <p style={{ color: '#64748b' }}>No bill data available</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div>
+              <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.text }}>Savings Trend</h3>
+              <p style={{ fontSize: '13px', color: colors.textMuted }}>Monthly savings vs target</p>
             </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc' }}>
-                  <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Client</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Bills</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Total Billed</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Savings</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Settled</th>
-                  <th style={{ padding: '12px 20px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Avg %</th>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: chartColors.success }} />
+                <span style={{ fontSize: '12px', color: colors.textMuted }}>Actual</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '12px', height: '3px', backgroundColor: chartColors.purple }} />
+                <span style={{ fontSize: '12px', color: colors.textMuted }}>Target</span>
+              </div>
+            </div>
+          </div>
+          <div style={{ height: '280px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={savingsTrendData}>
+                <defs>
+                  <linearGradient id="savingsGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColors.success} stopOpacity={0.3} />
+                    <stop offset="100%" stopColor={chartColors.success} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v/1000}k`} />
+                <Tooltip
+                  contentStyle={{
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  }}
+                  formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="savings"
+                  stroke={chartColors.success}
+                  strokeWidth={2}
+                  fill="url(#savingsGradient)"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="target"
+                  stroke={chartColors.purple}
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Status Breakdown */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`,
+            padding: '24px',
+          }}
+        >
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.text, marginBottom: '20px' }}>
+            Bill Status Breakdown
+          </h3>
+          <div style={{ height: '200px', position: 'relative' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={statusBreakdownData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={55}
+                  outerRadius={80}
+                  paddingAngle={3}
+                  dataKey="value"
+                >
+                  {statusBreakdownData.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              textAlign: 'center',
+            }}>
+              <p style={{ fontSize: '28px', fontWeight: '700', color: colors.text }}>156</p>
+              <p style={{ fontSize: '12px', color: colors.textMuted }}>Total</p>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px', marginTop: '20px' }}>
+            {statusBreakdownData.map(item => (
+              <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: item.color }} />
+                <span style={{ fontSize: '13px', color: colors.textMuted }}>{item.name}</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: colors.text, marginLeft: 'auto' }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Second Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        {/* Provider Performance */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`,
+            padding: '24px',
+          }}
+        >
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.text, marginBottom: '20px' }}>
+            Top Providers by Savings Rate
+          </h3>
+          <div style={{ height: '280px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={providerPerformanceData} layout="vertical">
+                <XAxis type="number" stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} domain={[0, 70]} tickFormatter={(v) => `${v}%`} />
+                <YAxis type="category" dataKey="provider" stroke={colors.textMuted} fontSize={11} tickLine={false} axisLine={false} width={100} />
+                <Tooltip
+                  contentStyle={{
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                  }}
+                  formatter={(value) => [`${value}%`, 'Savings Rate']}
+                />
+                <Bar dataKey="savings" fill={chartColors.success} radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Response Time Distribution */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`,
+            padding: '24px',
+          }}
+        >
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.text, marginBottom: '20px' }}>
+            Provider Response Time
+          </h3>
+          <div style={{ height: '280px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={responseTimeData}>
+                <XAxis dataKey="range" stroke={colors.textMuted} fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                  }}
+                  formatter={(value) => [`${value} bills`, 'Count']}
+                />
+                <Bar dataKey="count" fill={chartColors.blue} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Third Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+        {/* Savings by Provider Type */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`,
+            padding: '24px',
+          }}
+        >
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.text, marginBottom: '20px' }}>
+            Savings by Provider Type
+          </h3>
+          <div style={{ height: '240px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={savingsByTypeData}>
+                <XAxis dataKey="type" stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v/1000}k`} />
+                <Tooltip
+                  contentStyle={{
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                  }}
+                  formatter={(value) => [formatCurrency(Number(value)), 'Savings']}
+                />
+                <Bar dataKey="savings" fill={chartColors.purple} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Weekly Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: '16px',
+            border: `1px solid ${colors.border}`,
+            padding: '24px',
+          }}
+        >
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.text, marginBottom: '20px' }}>
+            Weekly Activity
+          </h3>
+          <div style={{ height: '240px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyTrendData}>
+                <XAxis dataKey="week" stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke={colors.textMuted} fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
+                    borderRadius: '8px',
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Bar dataKey="newBills" name="New Bills" fill={chartColors.blue} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="settled" name="Settled" fill={chartColors.success} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Quick Stats Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.9 }}
+        style={{
+          backgroundColor: colors.surface,
+          borderRadius: '16px',
+          border: `1px solid ${colors.border}`,
+          marginTop: '24px',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ padding: '20px 24px', borderBottom: `1px solid ${colors.border}` }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', color: colors.text }}>
+            Provider Performance Details
+          </h3>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc' }}>
+                <th style={{ padding: '14px 24px', textAlign: 'left', fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Provider</th>
+                <th style={{ padding: '14px 24px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Bills</th>
+                <th style={{ padding: '14px 24px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Savings Rate</th>
+                <th style={{ padding: '14px 24px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Avg Days</th>
+                <th style={{ padding: '14px 24px', textAlign: 'right', fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {providerPerformanceData.map((provider) => (
+                <tr key={provider.provider} style={{ borderTop: `1px solid ${colors.border}` }}>
+                  <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '500', color: colors.text }}>{provider.provider}</td>
+                  <td style={{ padding: '16px 24px', textAlign: 'right', fontSize: '14px', color: colors.text }}>{provider.bills}</td>
+                  <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      backgroundColor: provider.savings >= 55 
+                        ? (isDark ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7')
+                        : provider.savings >= 50
+                        ? (isDark ? 'rgba(245, 158, 11, 0.15)' : '#fef3c7')
+                        : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2'),
+                      color: provider.savings >= 55 
+                        ? chartColors.success
+                        : provider.savings >= 50
+                        ? chartColors.amber
+                        : (isDark ? '#f87171' : '#dc2626'),
+                    }}>
+                      {provider.savings}%
+                    </span>
+                  </td>
+                  <td style={{ padding: '16px 24px', textAlign: 'right', fontSize: '14px', color: colors.text }}>{provider.avgDays} days</td>
+                  <td style={{ padding: '16px 24px', textAlign: 'right' }}>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      backgroundColor: isDark ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7',
+                      color: chartColors.success,
+                    }}>
+                      Active
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {clientStats.map((client, i) => (
-                  <tr key={client.client_id} style={{ borderTop: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '14px 20px' }}>
-                      <Link href={`/dashboard/bill-negotiator?client=${client.client_id}`} style={{ 
-                        fontWeight: 500, 
-                        color: '#6366f1',
-                        textDecoration: 'none'
-                      }}>
-                        {client.client_name}
-                      </Link>
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right', color: '#0f172a' }}>{client.total_bills}</td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 500, color: '#0f172a' }}>
-                      {formatCurrency(client.total_billed)}
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 500, color: '#16a34a' }}>
-                      {formatCurrency(client.total_savings)}
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right', color: '#64748b' }}>
-                      {client.settled_count}/{client.total_bills}
-                    </td>
-                    <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                      {client.avg_settlement_percent > 0 ? (
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          background: client.avg_settlement_percent < 50 ? '#dcfce7' :
-                                       client.avg_settlement_percent < 70 ? '#fef3c7' : '#fee2e2',
-                          color: client.avg_settlement_percent < 50 ? '#16a34a' :
-                                 client.avg_settlement_percent < 70 ? '#d97706' : '#dc2626'
-                        }}>
-                          {client.avg_settlement_percent.toFixed(0)}%
-                        </span>
-                      ) : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+              ))}
+            </tbody>
+          </table>
         </div>
-
-        {/* Bills by Status */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '20px' }}>Bills by Status</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {Object.entries(stats?.bills_by_status || {})
-                .sort((a, b) => b[1] - a[1])
-                .map(([status, count]) => {
-                  const total = stats?.total_bills || 1;
-                  const percent = (count / total) * 100;
-                  const colors: Record<string, string> = {
-                    received: '#94a3b8',
-                    analyzing: '#64748b',
-                    ready_to_negotiate: '#8b5cf6',
-                    offer_sent: '#3b82f6',
-                    awaiting_response: '#f59e0b',
-                    counter_received: '#f97316',
-                    settled: '#22c55e',
-                    paid: '#16a34a',
-                    rejected: '#ef4444',
-                    cancelled: '#dc2626'
-                  };
-                  return (
-                    <div key={status}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '13px', color: '#374151', textTransform: 'capitalize' }}>
-                          {status.replace('_', ' ')}
-                        </span>
-                        <span style={{ fontSize: '13px', fontWeight: 500, color: '#0f172a' }}>{count}</span>
-                      </div>
-                      <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%',
-                          width: `${percent}%`,
-                          background: colors[status] || '#94a3b8',
-                          borderRadius: '4px',
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', marginBottom: '20px' }}>Quick Actions</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Link href="/dashboard/bill-negotiator/bills" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: '10px',
-                textDecoration: 'none',
-                transition: 'background 0.15s'
-              }}>
-                <span style={{ fontSize: '14px', color: '#7c3aed' }}>•</span>
-                <span style={{ color: '#0f172a', fontWeight: 500, fontSize: '14px' }}>View All Bills</span>
-              </Link>
-              <Link href="/dashboard/bill-negotiator/bills?status=awaiting_response" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                background: '#fef3c7',
-                border: '1px solid #fde68a',
-                borderRadius: '10px',
-                textDecoration: 'none'
-              }}>
-                <span style={{ fontSize: '16px' }}>⏳</span>
-                <span style={{ color: '#92400e', fontWeight: 500, fontSize: '14px' }}>Awaiting Response ({stats?.bills_by_status?.awaiting_response || 0})</span>
-              </Link>
-              <Link href="/dashboard/bill-negotiator/bills?status=counter_received" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 16px',
-                background: '#ffedd5',
-                border: '1px solid #fed7aa',
-                borderRadius: '10px',
-                textDecoration: 'none'
-              }}>
-                <span style={{ fontSize: '16px' }}>💬</span>
-                <span style={{ color: '#9a3412', fontWeight: 500, fontSize: '14px' }}>Counter Received ({stats?.bills_by_status?.counter_received || 0})</span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

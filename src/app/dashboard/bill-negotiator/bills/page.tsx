@@ -1,428 +1,699 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTheme } from '../ThemeProvider';
 import Link from 'next/link';
-import { useClient } from '@/context/ClientContext';
-import BulkUploadModal from '@/components/BulkUploadModal';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  fetchBills,
+  sendOffer,
+  acceptCounter,
+  escalateBill,
+  DEMO_MODE,
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  getStatusLabel,
+  getStatusColor,
+  type Bill,
+} from '@/lib/sirkl-api';
 
-interface Bill {
-  id: number;
-  client_id: number;
-  client_name?: string;
-  member_id: string;
-  member_name: string;
-  provider_name: string;
-  provider_npi: string;
-  provider_email?: string;
-  provider_fax?: string;
-  account_number: string;
-  date_of_service: string;
-  total_billed: number;
-  fair_price: number;
-  status: string;
-  received_at: string;
-  negotiation_id?: number;
-  negotiation_status?: string;
-  final_amount?: number;
-  savings_amount?: number;
-  savings_percent?: number;
-}
-
-export default function BillsListPage() {
-  const { selectedClient } = useClient();
+export default function BillsPage() {
+  const { isDark, colors } = useTheme();
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
-  const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const limit = 20;
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    const debounce = setTimeout(() => {
-      fetchBills();
-    }, searchQuery ? 300 : 0); // Debounce search
-    return () => clearTimeout(debounce);
-  }, [selectedClient, statusFilter, page, searchQuery]);
+    const loadBillsAsync = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchBills({ 
+          status: statusFilter === 'all' ? undefined : statusFilter,
+          search: searchQuery || undefined,
+        });
+        setBills(data.bills);
+      } catch (error) {
+        console.error('Failed to load bills:', error);
+      }
+      setLoading(false);
+    };
+    loadBillsAsync();
+  }, [statusFilter, searchQuery]);
 
-  const fetchBills = async () => {
-    setLoading(true);
-    try {
-      let url = `/api/db/bill-negotiator/bills?limit=${limit}&offset=${page * limit}`;
-      if (selectedClient) url += `&clientId=${selectedClient.id}`;
-      if (statusFilter !== 'all') url += `&status=${statusFilter}`;
-      if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
-      
-      const res = await fetch(url);
-      const data = await res.json();
-      setBills(data.bills || []);
-      setTotal(data.total || 0);
-    } catch (error) {
-      console.error('Error fetching bills:', error);
-    }
-    setLoading(false);
-  };
-  
-  // Check if bill needs manual review
-  const needsReview = (bill: Bill) => {
-    // Needs review if: no provider contact info, or extraction confidence low
-    const noContact = !bill.provider_email && !bill.provider_fax;
-    return noContact && bill.status === 'received';
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+  const refreshBills = async () => {
+    const data = await fetchBills({ 
+      status: statusFilter === 'all' ? undefined : statusFilter,
+      search: searchQuery || undefined,
     });
+    setBills(data.bills);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'settled': 
-      case 'paid': return { bg: '#dcfce7', color: '#16a34a' };
-      case 'offer_sent': 
-      case 'awaiting_response': return { bg: '#dbeafe', color: '#2563eb' };
-      case 'counter_received': return { bg: '#fef3c7', color: '#d97706' };
-      case 'ready_to_negotiate': return { bg: '#f5f3ff', color: '#7c3aed' };
-      case 'received':
-      case 'analyzing': return { bg: '#f1f5f9', color: '#64748b' };
-      case 'failed':
-      case 'cancelled': return { bg: '#fee2e2', color: '#dc2626' };
-      default: return { bg: '#f1f5f9', color: '#64748b' };
+  const handleSendOffer = async (billId: number, amount: number) => {
+    setActionLoading(true);
+    try {
+      const result = await sendOffer(billId, amount);
+      if (result.success) {
+        setActionMessage({ type: 'success', text: result.message });
+        refreshBills();
+        setTimeout(() => setSelectedBill(null), 1500);
+      }
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to send offer' });
     }
+    setActionLoading(false);
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'received': return 'New';
-      case 'analyzing': return 'Analyzing';
-      case 'ready_to_negotiate': return 'Ready';
-      case 'offer_sent': return 'Offer Sent';
-      case 'awaiting_response': return 'Awaiting';
-      case 'counter_received': return 'Counter';
-      case 'settled': return 'Settled';
-      case 'paid': return 'Paid';
-      case 'failed': return 'Failed';
-      case 'cancelled': return 'Cancelled';
-      default: return status;
+  const handleAcceptCounter = async (billId: number) => {
+    setActionLoading(true);
+    try {
+      const result = await acceptCounter(billId);
+      if (result.success) {
+        setActionMessage({ type: 'success', text: result.message });
+        refreshBills();
+        setTimeout(() => setSelectedBill(null), 1500);
+      }
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to accept counter' });
     }
+    setActionLoading(false);
   };
 
-  const statuses = [
-    { value: 'all', label: 'All Bills' },
-    { value: 'received', label: 'New' },
-    { value: 'analyzing', label: 'Analyzing' },
-    { value: 'ready_to_negotiate', label: 'Ready' },
-    { value: 'offer_sent', label: 'Offer Sent' },
-    { value: 'counter_received', label: 'Counter Received' },
-    { value: 'settled', label: 'Settled' },
-    { value: 'paid', label: 'Paid' },
+  const handleEscalate = async (billId: number) => {
+    setActionLoading(true);
+    try {
+      const result = await escalateBill(billId, 'Manual escalation');
+      if (result.success) {
+        setActionMessage({ type: 'success', text: result.message });
+        refreshBills();
+        setTimeout(() => setSelectedBill(null), 1500);
+      }
+    } catch {
+      setActionMessage({ type: 'error', text: 'Failed to escalate' });
+    }
+    setActionLoading(false);
+  };
+
+  const statusCounts = {
+    all: bills.length,
+    received: bills.filter(b => b.status === 'received').length,
+    analyzing: bills.filter(b => b.status === 'analyzing').length,
+    offer_sent: bills.filter(b => ['offer_sent', 'awaiting_response'].includes(b.status)).length,
+    counter_received: bills.filter(b => b.status === 'counter_received').length,
+    settled: bills.filter(b => ['settled', 'paid'].includes(b.status)).length,
+  };
+
+  const statusTabs = [
+    { key: 'all', label: 'All' },
+    { key: 'received', label: 'New' },
+    { key: 'analyzing', label: 'Analyzing' },
+    { key: 'offer_sent', label: 'Offer Sent' },
+    { key: 'counter_received', label: 'Counter' },
+    { key: 'settled', label: 'Settled' },
   ];
 
   return (
-    <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px' }}>
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <Link href="/dashboard/bill-negotiator" style={{ color: '#64748b', textDecoration: 'none', fontSize: '14px' }}>
-              Bill Negotiator
-            </Link>
-            <span style={{ color: '#cbd5e1' }}>/</span>
-            <span style={{ color: '#6366f1', fontWeight: 500, fontSize: '14px' }}>Bills</span>
-          </div>
-          <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
-            All Bills
+          <h1 style={{ fontSize: '24px', fontWeight: '700', color: colors.text, marginBottom: '4px' }}>
+            Bills
           </h1>
-          <p style={{ color: '#64748b', fontSize: '15px' }}>
-            {total} total bills {selectedClient ? `for ${selectedClient.name}` : ''}
+          <p style={{ color: colors.textMuted, fontSize: '14px' }}>
+            Manage and track all medical bills
+            {DEMO_MODE && (
+              <span style={{
+                marginLeft: '12px',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                fontWeight: '600',
+                backgroundColor: isDark ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7',
+                color: isDark ? '#fbbf24' : '#92400e',
+              }}>
+                DEMO DATA
+              </span>
+            )}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {selectedClient && (
-            <button
-              onClick={() => setShowBulkUpload(true)}
-              style={{
-                padding: '12px 24px',
-                background: 'white',
-                color: '#6366f1',
-                borderRadius: '10px',
-                border: '2px solid #6366f1',
-                fontWeight: 600,
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-              </svg>
-              Bulk Upload
-            </button>
-          )}
-          <Link
-            href="/dashboard/bill-negotiator/bills/new"
-            style={{
-              padding: '12px 24px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-              color: 'white',
-              borderRadius: '10px',
-              textDecoration: 'none',
-              fontWeight: 600,
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)'
-            }}
-          >
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path d="M12 4v16m8-8H4"/>
-            </svg>
-            Add Bill
-          </Link>
-        </div>
+        <Link href="/dashboard/upload" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '10px 20px',
+          background: colors.gradient,
+          border: 'none',
+          borderRadius: '8px',
+          color: '#fff',
+          fontSize: '14px',
+          fontWeight: '600',
+          textDecoration: 'none',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Upload Bill
+        </Link>
       </div>
 
-      {/* Search & Filters */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
-        {/* Search */}
-        <div style={{ position: 'relative', flex: '1', minWidth: '250px', maxWidth: '400px' }}>
-          <svg width="20" height="20" fill="none" stroke="#94a3b8" strokeWidth="2" viewBox="0 0 24 24" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }}>
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by member or provider name..."
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
-            style={{
-              width: '100%',
-              padding: '10px 12px 10px 42px',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0',
-              fontSize: '14px',
-              outline: 'none'
-            }}
-          />
-        </div>
-        
-        {/* Status Filters */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {statuses.map(s => (
-            <button
-              key={s.value}
-              onClick={() => { setStatusFilter(s.value); setPage(0); }}
+      {/* Filters */}
+      <div style={{
+        backgroundColor: colors.surface,
+        borderRadius: '12px',
+        border: `1px solid ${colors.border}`,
+        padding: '16px 20px',
+        marginBottom: '24px',
+      }}>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
+          {/* Search */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '10px 16px',
+            backgroundColor: colors.bg,
+            borderRadius: '8px',
+            border: `1px solid ${colors.border}`,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by bill ID, provider, or member..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               style={{
-                padding: '8px 16px',
-                borderRadius: '8px',
-                border: statusFilter === s.value ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                background: statusFilter === s.value ? '#eef2ff' : 'white',
-                color: statusFilter === s.value ? '#6366f1' : '#64748b',
-                fontWeight: 500,
+                flex: 1,
+                backgroundColor: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: colors.text,
                 fontSize: '14px',
-                cursor: 'pointer',
-                transition: 'all 0.15s'
               }}
-            >
-              {s.label}
-            </button>
-          ))}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.textMuted }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Status Tabs */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {statusTabs.map((tab) => {
+            const count = statusCounts[tab.key as keyof typeof statusCounts] || 0;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: statusFilter === tab.key ? colors.accent : 'transparent',
+                  color: statusFilter === tab.key ? '#fff' : colors.textMuted,
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {tab.label} ({count})
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Bills Table */}
-      <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      <div style={{
+        backgroundColor: colors.surface,
+        borderRadius: '12px',
+        border: `1px solid ${colors.border}`,
+        overflow: 'hidden',
+      }}>
+        {/* Table Header */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 2fr 1fr 1fr 1fr 100px',
+          padding: '12px 20px',
+          borderBottom: `1px solid ${colors.border}`,
+          backgroundColor: isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc',
+        }}>
+          <span style={{ fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Bill ID</span>
+          <span style={{ fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Provider / Member</span>
+          <span style={{ fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Billed</span>
+          <span style={{ fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Fair Price</span>
+          <span style={{ fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Savings</span>
+          <span style={{ fontSize: '12px', fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' }}>Status</span>
+        </div>
+
+        {/* Loading State */}
         {loading ? (
-          <div style={{ padding: '48px', textAlign: 'center' }}>
-            <p style={{ color: '#64748b' }}>Loading bills...</p>
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              border: `2px solid ${colors.border}`,
+              borderTopColor: colors.accent,
+              borderRadius: '50%',
+              margin: '0 auto 12px',
+              animation: 'spin 0.8s linear infinite',
+            }} />
+            <p style={{ color: colors.textMuted, fontSize: '14px' }}>Loading bills...</p>
+            <style jsx>{`@keyframes spin { to { transform: rotate(360deg); }}`}</style>
           </div>
         ) : bills.length === 0 ? (
-          <div style={{ padding: '64px', textAlign: 'center' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}><svg width="32" height="32" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-            <p style={{ fontSize: '18px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>No bills found</p>
-            <p style={{ color: '#64748b', marginBottom: '24px' }}>
-              {statusFilter !== 'all' ? 'Try a different filter or ' : ''}Get started by adding your first bill.
-            </p>
-            <Link
-              href="/dashboard/bill-negotiator/bills/new"
-              style={{
-                display: 'inline-flex',
-                padding: '12px 24px',
-                background: '#6366f1',
-                color: 'white',
-                borderRadius: '8px',
-                textDecoration: 'none',
-                fontWeight: 600
-              }}
-            >
-              Add First Bill
-            </Link>
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            <p style={{ color: colors.textMuted }}>No bills found</p>
           </div>
         ) : (
-          <>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc' }}>
-                  <th style={{ padding: '14px 20px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Member / Provider</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Date of Service</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Billed</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Fair Price</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Savings</th>
-                  <th style={{ padding: '14px 16px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Status</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'right', fontSize: '12px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Received</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bills.map((bill) => {
-                  const statusStyle = getStatusColor(bill.status);
-                  const potentialSavings = bill.total_billed && bill.fair_price 
-                    ? bill.total_billed - bill.fair_price 
-                    : null;
-                  
-                  return (
-                    <tr 
-                      key={bill.id}
-                      style={{ borderTop: '1px solid #f1f5f9', cursor: 'pointer' }}
-                      onClick={() => window.location.href = `/dashboard/bill-negotiator/bills/${bill.id}`}
-                    >
-                      <td style={{ padding: '16px 20px' }}>
-                        <div>
-                          <p style={{ fontWeight: 500, color: '#0f172a', fontSize: '14px' }}>{bill.member_name || 'Unknown'}</p>
-                          <p style={{ fontSize: '13px', color: '#64748b' }}>{bill.provider_name || 'Unknown Provider'}</p>
-                        </div>
-                      </td>
-                      <td style={{ padding: '16px', textAlign: 'center', fontSize: '14px', color: '#64748b' }}>
-                        {formatDate(bill.date_of_service)}
-                      </td>
-                      <td style={{ padding: '16px', textAlign: 'right', fontWeight: 600, color: '#0f172a', fontSize: '14px' }}>
-                        {formatCurrency(bill.total_billed || 0)}
-                      </td>
-                      <td style={{ padding: '16px', textAlign: 'right', color: '#6366f1', fontSize: '14px', fontWeight: 500 }}>
-                        {bill.fair_price ? formatCurrency(bill.fair_price) : '-'}
-                      </td>
-                      <td style={{ padding: '16px', textAlign: 'right' }}>
-                        {bill.savings_amount ? (
-                          <span style={{ color: '#16a34a', fontWeight: 600, fontSize: '14px' }}>
-                            {formatCurrency(bill.savings_amount)} ({parseFloat(String(bill.savings_percent || 0)).toFixed(0)}%)
-                          </span>
-                        ) : potentialSavings && potentialSavings > 0 ? (
-                          <span style={{ color: '#64748b', fontSize: '13px' }}>
-                            ~{formatCurrency(potentialSavings)}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>-</span>
+          <AnimatePresence>
+            {bills.map((bill, i) => {
+              const statusStyle = getStatusColor(bill.status, isDark);
+              const savings = bill.savings_amount || (bill.fair_price ? bill.total_billed - bill.fair_price : null);
+              const savingsPercent = bill.savings_percent || (savings && bill.total_billed ? Math.round((savings / bill.total_billed) * 100) : null);
+              
+              return (
+                <motion.div
+                  key={bill.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ delay: i * 0.03 }}
+                  onClick={() => setSelectedBill(bill)}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 2fr 1fr 1fr 1fr 100px',
+                    padding: '16px 20px',
+                    borderBottom: i < bills.length - 1 ? `1px solid ${colors.border}` : 'none',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s',
+                    alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isDark ? 'rgba(255,255,255,0.02)' : '#f8fafc'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: '500', color: colors.accent }}>BILL-{bill.id}</p>
+                    <p style={{ fontSize: '12px', color: colors.textMuted }}>{formatDate(bill.received_at)}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: '500', color: colors.text }}>{bill.provider_name}</p>
+                    <p style={{ fontSize: '13px', color: colors.textMuted }}>{bill.member_name}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: '500', color: colors.text }}>{formatCurrency(bill.total_billed)}</p>
+                  </div>
+                  <div>
+                    {bill.fair_price ? (
+                      <p style={{ fontSize: '14px', fontWeight: '500', color: colors.text }}>
+                        {formatCurrency(bill.fair_price)}
+                      </p>
+                    ) : (
+                      <p style={{ fontSize: '14px', color: colors.textMuted }}>—</p>
+                    )}
+                  </div>
+                  <div>
+                    {savings ? (
+                      <div>
+                        <p style={{ fontSize: '14px', fontWeight: '600', color: isDark ? '#4ade80' : '#16a34a' }}>
+                          {formatCurrency(savings)}
+                        </p>
+                        {savingsPercent && (
+                          <p style={{ fontSize: '12px', color: isDark ? '#4ade80' : '#16a34a' }}>
+                            {savingsPercent}% saved
+                          </p>
                         )}
-                      </td>
-                      <td style={{ padding: '16px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                          <span style={{
-                            padding: '4px 10px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            background: statusStyle.bg,
-                            color: statusStyle.color
-                          }}>
-                            {getStatusLabel(bill.status)}
-                          </span>
-                          {needsReview(bill) && (
-                            <span style={{
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                              fontWeight: 600,
-                              background: '#fef3c7',
-                              color: '#d97706'
-                            }}>
-                              ⚠️ Needs Review
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td style={{ padding: '16px 20px', textAlign: 'right', fontSize: '13px', color: '#64748b' }}>
-                        {formatDate(bill.received_at)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            {/* Pagination */}
-            {total > limit && (
-              <div style={{ padding: '16px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <p style={{ fontSize: '14px', color: '#64748b' }}>
-                  Showing {page * limit + 1} to {Math.min((page + 1) * limit, total)} of {total}
-                </p>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => setPage(Math.max(0, page - 1))}
-                    disabled={page === 0}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      background: 'white',
-                      color: page === 0 ? '#94a3b8' : '#0f172a',
-                      cursor: page === 0 ? 'not-allowed' : 'pointer',
-                      fontWeight: 500,
-                      fontSize: '14px'
-                    }}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setPage(page + 1)}
-                    disabled={(page + 1) * limit >= total}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      background: 'white',
-                      color: (page + 1) * limit >= total ? '#94a3b8' : '#0f172a',
-                      cursor: (page + 1) * limit >= total ? 'not-allowed' : 'pointer',
-                      fontWeight: 500,
-                      fontSize: '14px'
-                    }}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: '14px', color: colors.textMuted }}>—</p>
+                    )}
+                  </div>
+                  <span style={{
+                    display: 'inline-block',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                    backgroundColor: statusStyle.bg,
+                    color: statusStyle.color,
+                    textAlign: 'center',
+                  }}>
+                    {getStatusLabel(bill.status)}
+                  </span>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
 
-      {/* Bulk Upload Modal */}
-      {showBulkUpload && selectedClient && (
-        <BulkUploadModal
-          clientId={typeof selectedClient.id === 'string' ? parseInt(selectedClient.id) : selectedClient.id}
-          workflowKey="bill-negotiator"
-          workflowName="Bill Negotiator"
-          onClose={() => setShowBulkUpload(false)}
-          onSuccess={() => {
-            setShowBulkUpload(false);
-            fetchBills();
-          }}
-        />
-      )}
+      {/* Bill Detail Modal */}
+      <AnimatePresence>
+        {selectedBill && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => { setSelectedBill(null); setActionMessage(null); }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 50,
+              padding: '20px',
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: colors.surface,
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '700px',
+                maxHeight: '85vh',
+                overflow: 'auto',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              }}
+            >
+              {/* Modal Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: `1px solid ${colors.border}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <div>
+                  <h2 style={{ fontSize: '18px', fontWeight: '600', color: colors.text }}>Bill Details</h2>
+                  <p style={{ fontSize: '14px', color: colors.accent }}>BILL-{selectedBill.id}</p>
+                </div>
+                <button
+                  onClick={() => { setSelectedBill(null); setActionMessage(null); }}
+                  style={{
+                    padding: '8px',
+                    backgroundColor: colors.bg,
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    color: colors.textMuted,
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: '24px' }}>
+                {/* Action Message */}
+                {actionMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      padding: '12px 16px',
+                      marginBottom: '20px',
+                      borderRadius: '8px',
+                      backgroundColor: actionMessage.type === 'success' 
+                        ? (isDark ? 'rgba(34, 197, 94, 0.15)' : '#dcfce7')
+                        : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fef2f2'),
+                      color: actionMessage.type === 'success'
+                        ? (isDark ? '#4ade80' : '#16a34a')
+                        : (isDark ? '#f87171' : '#dc2626'),
+                      fontSize: '14px',
+                      fontWeight: '500',
+                    }}
+                  >
+                    {actionMessage.text}
+                  </motion.div>
+                )}
+
+                {/* Status Badge */}
+                <div style={{ marginBottom: '24px' }}>
+                  <span style={{
+                    display: 'inline-block',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    backgroundColor: getStatusColor(selectedBill.status, isDark).bg,
+                    color: getStatusColor(selectedBill.status, isDark).color,
+                  }}>
+                    {getStatusLabel(selectedBill.status)}
+                  </span>
+                </div>
+
+                {/* Info Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+                  <div>
+                    <p style={{ fontSize: '13px', color: colors.textMuted, marginBottom: '4px' }}>Provider</p>
+                    <p style={{ fontSize: '15px', fontWeight: '500', color: colors.text }}>{selectedBill.provider_name}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '13px', color: colors.textMuted, marginBottom: '4px' }}>Service Date</p>
+                    <p style={{ fontSize: '15px', fontWeight: '500', color: colors.text }}>
+                      {selectedBill.service_date ? formatDate(selectedBill.service_date) : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '13px', color: colors.textMuted, marginBottom: '4px' }}>Member</p>
+                    <p style={{ fontSize: '15px', fontWeight: '500', color: colors.text }}>{selectedBill.member_name}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '13px', color: colors.textMuted, marginBottom: '4px' }}>Received</p>
+                    <p style={{ fontSize: '15px', fontWeight: '500', color: colors.text }}>
+                      {formatDateTime(selectedBill.received_at)}
+                    </p>
+                  </div>
+                  {selectedBill.cpt_codes && selectedBill.cpt_codes.length > 0 && (
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <p style={{ fontSize: '13px', color: colors.textMuted, marginBottom: '4px' }}>CPT Codes</p>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {selectedBill.cpt_codes.map((code) => (
+                          <span key={code} style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            color: colors.text,
+                          }}>
+                            {code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Amounts */}
+                <div style={{
+                  backgroundColor: colors.bg,
+                  borderRadius: '12px',
+                  padding: '20px',
+                  marginBottom: '24px',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '14px', color: colors.textMuted }}>Billed Amount</span>
+                    <span style={{ fontSize: '16px', fontWeight: '600', color: colors.text }}>
+                      {formatCurrency(selectedBill.total_billed)}
+                    </span>
+                  </div>
+                  {selectedBill.fair_price && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '14px', color: colors.textMuted }}>Fair Price (Calculated)</span>
+                      <span style={{ fontSize: '16px', fontWeight: '600', color: colors.text }}>
+                        {formatCurrency(selectedBill.fair_price)}
+                      </span>
+                    </div>
+                  )}
+                  {selectedBill.current_offer && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '14px', color: colors.textMuted }}>Current Offer</span>
+                      <span style={{ fontSize: '16px', fontWeight: '600', color: colors.accent }}>
+                        {formatCurrency(selectedBill.current_offer)}
+                      </span>
+                    </div>
+                  )}
+                  {selectedBill.savings_amount && (
+                    <div style={{ 
+                      borderTop: `1px solid ${colors.border}`, 
+                      paddingTop: '12px', 
+                      display: 'flex', 
+                      justifyContent: 'space-between' 
+                    }}>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: isDark ? '#4ade80' : '#16a34a' }}>
+                        Total Savings ({selectedBill.savings_percent}%)
+                      </span>
+                      <span style={{ fontSize: '18px', fontWeight: '700', color: isDark ? '#4ade80' : '#16a34a' }}>
+                        {formatCurrency(selectedBill.savings_amount)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions based on status */}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {/* Analyzing - wait for fair price */}
+                  {selectedBill.status === 'analyzing' && (
+                    <div style={{
+                      flex: 1,
+                      padding: '16px',
+                      backgroundColor: isDark ? 'rgba(59, 130, 246, 0.1)' : '#dbeafe',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                    }}>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        border: `2px solid ${colors.blue}`,
+                        borderTopColor: 'transparent',
+                        borderRadius: '50%',
+                        animation: 'spin 0.8s linear infinite',
+                      }} />
+                      <span style={{ fontSize: '14px', color: colors.blue }}>
+                        AI is analyzing bill and calculating fair price...
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Ready to negotiate - send offer */}
+                  {(selectedBill.status === 'received' || selectedBill.status === 'ready_to_negotiate') && selectedBill.fair_price && (
+                    <button
+                      onClick={() => handleSendOffer(selectedBill.id, selectedBill.fair_price!)}
+                      disabled={actionLoading}
+                      style={{
+                        flex: 1,
+                        padding: '14px',
+                        background: colors.gradient,
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontWeight: '600',
+                        cursor: actionLoading ? 'wait' : 'pointer',
+                        opacity: actionLoading ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                      </svg>
+                      Send Offer ({formatCurrency(selectedBill.fair_price)})
+                    </button>
+                  )}
+
+                  {/* Counter received - accept or counter */}
+                  {selectedBill.status === 'counter_received' && (
+                    <>
+                      <button
+                        onClick={() => handleAcceptCounter(selectedBill.id)}
+                        disabled={actionLoading}
+                        style={{
+                          flex: 1,
+                          padding: '14px',
+                          background: isDark ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7',
+                          border: `1px solid ${isDark ? '#4ade80' : '#16a34a'}`,
+                          borderRadius: '8px',
+                          color: isDark ? '#4ade80' : '#16a34a',
+                          fontWeight: '600',
+                          cursor: actionLoading ? 'wait' : 'pointer',
+                        }}
+                      >
+                        Accept Counter
+                      </button>
+                      <button
+                        onClick={() => selectedBill.fair_price && handleSendOffer(selectedBill.id, selectedBill.fair_price)}
+                        disabled={actionLoading || !selectedBill.fair_price}
+                        style={{
+                          flex: 1,
+                          padding: '14px',
+                          background: colors.gradient,
+                          border: 'none',
+                          borderRadius: '8px',
+                          color: '#fff',
+                          fontWeight: '600',
+                          cursor: actionLoading ? 'wait' : 'pointer',
+                        }}
+                      >
+                        Send Counter
+                      </button>
+                    </>
+                  )}
+
+                  {/* Escalate button */}
+                  {!['settled', 'paid', 'failed'].includes(selectedBill.status) && (
+                    <button
+                      onClick={() => handleEscalate(selectedBill.id)}
+                      disabled={actionLoading}
+                      style={{
+                        padding: '14px 20px',
+                        backgroundColor: colors.bg,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: '8px',
+                        color: colors.text,
+                        fontWeight: '500',
+                        cursor: actionLoading ? 'wait' : 'pointer',
+                      }}
+                    >
+                      Escalate
+                    </button>
+                  )}
+
+                  {/* Settled - show result */}
+                  {['settled', 'paid'].includes(selectedBill.status) && (
+                    <div style={{
+                      flex: 1,
+                      padding: '16px',
+                      backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : '#dcfce7',
+                      borderRadius: '8px',
+                      textAlign: 'center',
+                    }}>
+                      <p style={{ fontSize: '14px', fontWeight: '600', color: isDark ? '#4ade80' : '#16a34a' }}>
+                        ✓ Bill settled successfully
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <style jsx>{`@keyframes spin { to { transform: rotate(360deg); }}`}</style>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
