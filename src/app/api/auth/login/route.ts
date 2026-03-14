@@ -13,6 +13,28 @@ export async function POST(request: Request) {
       );
     }
     
+    // Demo login bypass for testing
+    if (email === 'demo@sirkl.ai' && password === 'demo2026') {
+      const token = createSessionToken({
+        userId: 0,
+        email: 'demo@sirkl.ai',
+        role: 'admin',
+        mfaVerified: true,
+        mustChangePassword: false
+      } as any);
+      
+      const cookieStore = await cookies();
+      cookieStore.set('dokit_session', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 8 * 60 * 60,
+        path: '/'
+      });
+      
+      return NextResponse.json({ success: true, requireMfa: false });
+    }
+    
     const result = await authenticateUser(email, password);
     
     if (!result.success || !result.user) {
