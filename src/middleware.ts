@@ -8,7 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
 
 // Public routes that don't require authentication
 // TODO: Remove /dashboard from public routes once auth is set up properly
-const publicRoutes = ['/login', '/login/mfa', '/login/recovery', '/api/auth', '/api/health', '/api/db', '/api/migrations', '/api/clients', '/respond', '/api/respond', '/api/bill-negotiator', '/api/providers', '/dashboard', '/mobile'];
+const publicRoutes = ['/login', '/login/mfa', '/login/recovery', '/api/auth', '/api/health', '/api/db', '/api/migrations', '/api/clients', '/respond', '/api/respond', '/api/bill-negotiator', '/api/providers', '/api/test-ses', '/dashboard', '/mobile'];
 
 // Routes that require auth but not full MFA
 const partialAuthRoutes = ['/setup-mfa', '/change-password'];
