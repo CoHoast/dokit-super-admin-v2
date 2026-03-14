@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { extractTextFromPdf } from '@/lib/textract-service';
+import { validateEmail } from '@/lib/email-validator';
 
 // System prompt for GPT-4o Vision (images)
 const VISION_EXTRACTION_PROMPT = `You are a medical bill data extraction expert. Extract all relevant information from this medical bill image and return it as structured JSON.
@@ -13,6 +14,13 @@ CRITICAL - PROVIDER CONTACT INFO IS REQUIRED:
 5. If you see "Email: xxxxx" anywhere on the bill, extract that email address
 
 These contact fields are essential for automated bill negotiation - do NOT skip them.
+
+**EMAIL ACCURACY IS CRITICAL** - Read each character carefully:
+- Distinguish between similar characters: u/n/h, i/l/1, o/0, m/rn, e/c
+- Double-check the email by re-reading it character by character
+- Common email errors to avoid: "rn" misread as "m", "cl" as "d", "u" as "n"
+- If unsure about a character, set confidence lower (below 70)
+- The email MUST be exactly correct for negotiation to work
 
 Return this exact structure:
 {
@@ -322,6 +330,31 @@ export async function POST(request: NextRequest) {
       extractedAt: new Date().toISOString(),
       method: extractionMethod,
     };
+    
+    // Validate email if present
+    let emailValidation = null;
+    if (extractedData.provider?.email?.value) {
+      const email = extractedData.provider.email.value;
+      const confidence = extractedData.provider.email.confidence || 70;
+      
+      try {
+        emailValidation = await validateEmail(email, confidence);
+        
+        // Add validation result to response
+        extractedData.provider.email.validation = emailValidation;
+        
+        // Flag if email needs review
+        if (!emailValidation.isValid || emailValidation.confidence < 70) {
+          extractedData._meta.emailNeedsReview = true;
+          extractedData._meta.emailWarnings = emailValidation.warnings;
+          if (emailValidation.suggestions?.length) {
+            extractedData._meta.emailSuggestions = emailValidation.suggestions;
+          }
+        }
+      } catch (e) {
+        console.warn('[Extract] Email validation failed:', e);
+      }
+    }
     
     return NextResponse.json({
       success: true,
