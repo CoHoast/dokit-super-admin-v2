@@ -6,7 +6,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 // Demo mode - uses mock data when true (no API key required)
 // Set to false to use real backend API
-export const DEMO_MODE = false;
+// TODO: Set to false once all endpoints are wired up
+export const DEMO_MODE = true;
 
 export interface Bill {
   id: number;
