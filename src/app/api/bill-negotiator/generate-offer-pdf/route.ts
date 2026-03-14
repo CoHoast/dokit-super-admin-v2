@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import React from 'react';
-import { renderToBuffer } from '@react-pdf/renderer';
+import React, { ReactElement } from 'react';
+import { renderToBuffer, Document } from '@react-pdf/renderer';
 import { OfferLetterPDF, OfferLetterProps } from '@/lib/pdf/offer-letter';
 
 export async function POST(request: NextRequest) {
@@ -50,12 +50,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Generate PDF
-    const pdfBuffer = await renderToBuffer(
-      React.createElement(OfferLetterPDF, props)
-    );
+    const element = React.createElement(OfferLetterPDF, props) as ReactElement;
+    const pdfBuffer = await renderToBuffer(element as any);
 
     // Return PDF as downloadable file
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',

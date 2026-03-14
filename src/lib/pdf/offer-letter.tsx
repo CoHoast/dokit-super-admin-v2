@@ -318,7 +318,7 @@ export function OfferLetterPDF(props: OfferLetterProps) {
           {props.lineItems.map((item, idx) => (
             <View 
               key={idx} 
-              style={[styles.tableRow, idx % 2 === 1 && styles.tableRowAlt]}
+              style={idx % 2 === 1 ? [styles.tableRow, styles.tableRowAlt] : styles.tableRow}
             >
               <Text style={styles.col1}>{item.cptCode}</Text>
               <Text style={styles.col2}>{item.description}</Text>
