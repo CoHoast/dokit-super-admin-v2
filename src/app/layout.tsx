@@ -3,12 +3,16 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "DOKit Admin Dashboard",
-  description: "AI-powered healthcare document processing platform",
+  title: "Sirkl | Healthcare Intelligence Platform",
+  description: "AI-powered healthcare bill negotiation and claims intelligence",
+  icons: {
+    icon: '/icon.png',
+    apple: '/apple-icon.png',
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#6366f1",
+  themeColor: "#0f172a",
   width: "device-width",
   initialScale: 1,
 };
